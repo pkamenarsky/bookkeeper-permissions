@@ -111,10 +111,10 @@ instance {-# OVERLAPPABLE #-}
     (\(Book (Map.Ext k v m)) (Book (Map.Ext k' v' m')) -> Book (Map.Ext k (cnvPermission ((cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) & unpackPermission mode prf .~ v')) (getBook (Book m & elimBook mode prf .~ Book m'))))
 
 instance {-# OVERLAPPABLE #-}
-      ( Elim mode prf v
-      , ElimBook mode prf m
-      , ElimBookM mode prf ((k :=> v) ': m) ~ ((k :=> ElimM mode prf v) ': ElimBookM mode prf m)
-      ) => ElimBook mode prf ((k :=> v) ': m) where
+    ( Elim mode prf v
+    , ElimBook mode prf m
+    , ElimBookM mode prf ((k :=> v) ': m) ~ ((k :=> ElimM mode prf v) ': ElimBookM mode prf m)
+    ) => ElimBook mode prf ((k :=> v) ': m) where
   elimBook mode prf = lens
     (\(Book (Map.Ext k v m)) -> (Book (Map.Ext k (v ^. elim mode prf) (getBook (Book m ^. elim mode prf)))))
     (\(Book (Map.Ext k v m)) (Book (Map.Ext k' v' m')) -> Book (Map.Ext k (v & elim mode prf .~ v') (getBook (Book m & elim mode prf .~ Book m'))))
