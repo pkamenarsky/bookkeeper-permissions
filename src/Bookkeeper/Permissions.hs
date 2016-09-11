@@ -1,9 +1,6 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedLabels #-}
@@ -12,18 +9,19 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Bookkeeper.Permissions where
+module Bookkeeper.Permissions
+  ( ElimM
+  , Elim
+  , ElimListM
+  , ElimList
+  ) where
 
 import Prelude hiding (and)
 
 import GHC.TypeLits
-import GHC.Types
 import GHC.OverloadedLabels
 
-import Data.Maybe
 import Data.Proxy
-import Data.Type.Bool
-import Data.Type.Equality
 
 import Lens.Micro
 
@@ -39,7 +37,7 @@ data a :|: b
 data a :&: b
 data a :*: b
 
-data Proof pr r = Proof r deriving Show
+data Permission pr a = Permission a deriving Show
 
 type family ElimTerm1M prf x where
   ElimTerm1M prf (op () x)    = ElimTerm1M prf x
@@ -54,30 +52,30 @@ type family ElimTerm1M prf x where
 
 data ModeNotFound
 
-type family ElimTermM prf  x where
+type family ElimTermM prf x where
   ElimTermM prf (Just (op x y)) = ElimTerm1M prf (op (ElimTermM prf  (Just x)) (ElimTermM prf  (Just y)))
   ElimTermM prf (Just x)        = ElimTerm1M prf x
   ElimTermM prf Nothing         = ModeNotFound
 
 --------------------------------------------------------------------------------
 
-cnvProof :: Proof prf a -> Proof prf' a
-cnvProof (Proof a) = Proof a
+cnvPermission :: Permission prf a -> Permission prf' a
+cnvPermission (Permission a) = Permission a
 
-type family UnpackProofM mode prf a where
-  UnpackProofM mode prf (Proof '[mode :=> ()] a)           = ElimM mode prf a
-  UnpackProofM mode prf (Proof '[mode :=> ModeNotFound] a) = TypeError (Text "Mode " :<>: ShowType mode :<>: Text " isn't defined for all fields")
-  UnpackProofM mode prf (Proof prf' a)                     = Proof prf' a
+type family UnpackPermissionM mode prf a where
+  UnpackPermissionM mode prf (Permission '[mode :=> ()] a)           = ElimM mode prf a
+  UnpackPermissionM mode prf (Permission '[mode :=> ModeNotFound] a) = TypeError (Text "Mode " :<>: ShowType mode :<>: Text " isn't defined for all fields")
+  UnpackPermissionM mode prf (Permission prf' a)                     = Permission prf' a
 
-class UnpackProof mode prf a where
-  unpackProof :: Proxy mode -> Proxy prf -> Lens' a (UnpackProofM mode prf a)
+class UnpackPermission mode prf a where
+  unpackPermission :: Proxy mode -> Proxy prf -> Lens' a (UnpackPermissionM mode prf a)
 
-instance (Elim mode prf a, UnpackProofM mode prf (Proof '[mode :=> ()] a) ~ (ElimM mode prf a))
-       => UnpackProof mode prf (Proof '[mode :=> ()] a) where
-  unpackProof mode prf = lens (\(Proof a) -> a ^. elim mode prf) (\(Proof s) a -> Proof (s & elim mode prf .~ a))
+instance (Elim mode prf a, UnpackPermissionM mode prf (Permission '[mode :=> ()] a) ~ (ElimM mode prf a))
+       => UnpackPermission mode prf (Permission '[mode :=> ()] a) where
+  unpackPermission mode prf = lens (\(Permission a) -> a ^. elim mode prf) (\(Permission s) a -> Permission (s & elim mode prf .~ a))
 
-instance {-# OVERLAPPABLE #-} (UnpackProofM mode prf (Proof prf' a) ~ Proof prf' a) => UnpackProof mode prf (Proof prf' a) where
-  unpackProof mode prf = lens id (const id)
+instance {-# OVERLAPPABLE #-} (UnpackPermissionM mode prf (Permission prf' a) ~ Permission prf' a) => UnpackPermission mode prf (Permission prf' a) where
+  unpackPermission mode prf = lens id (const id)
 
 type family ElimM mode prf a where
   ElimM mode prf (Book' kvs) = Book' (ElimBookM mode prf kvs)
@@ -94,7 +92,7 @@ instance {-# OVERLAPPABLE #-} (ElimM mode prf a ~ a) => Elim mode prf a where
 
 type family ElimBookM mode prf a where
   ElimBookM mode prf '[] = '[]
-  ElimBookM mode prf ((k :=> Proof prf' v) ': m) = (k :=> UnpackProofM mode prf (Proof '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) ': ElimBookM mode prf m
+  ElimBookM mode prf ((k :=> Permission prf' v) ': m) = (k :=> UnpackPermissionM mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) ': ElimBookM mode prf m
   ElimBookM mode prf ((k :=> v) ': m) = (k :=> ElimM mode prf v) ': ElimBookM mode prf m
 
 class ElimBook mode prf a where
@@ -104,13 +102,13 @@ instance (ElimBookM mode prf '[] ~ '[]) => ElimBook mode prf '[] where
   elimBook _ _ = lens id (const id)
 
 instance {-# OVERLAPPABLE #-}
-    ( UnpackProof mode prf (Proof '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)
+    ( UnpackPermission mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)
     , ElimBook mode prf m
     )
-    => ElimBook mode prf ((k :=> Proof prf' v) ': m) where
+    => ElimBook mode prf ((k :=> Permission prf' v) ': m) where
   elimBook mode prf = lens
-      (\(Book (Map.Ext k v m)) -> Book (Map.Ext k ((cnvProof v :: (Proof '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) ^. unpackProof mode prf) (getBook (Book m ^. elimBook mode prf))))
-      (\(Book (Map.Ext k v m)) (Book (Map.Ext k' v' m')) -> Book (Map.Ext k (cnvProof ((cnvProof v :: (Proof '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) & unpackProof mode prf .~ v')) (getBook (Book m & elimBook mode prf .~ Book m'))))
+      (\(Book (Map.Ext k v m)) -> Book (Map.Ext k ((cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) ^. unpackPermission mode prf) (getBook (Book m ^. elimBook mode prf))))
+      (\(Book (Map.Ext k v m)) (Book (Map.Ext k' v' m')) -> Book (Map.Ext k (cnvPermission ((cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) & unpackPermission mode prf .~ v')) (getBook (Book m & elimBook mode prf .~ Book m'))))
 
 instance {-# OVERLAPPABLE #-}
       ( Elim mode prf v
