@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -39,7 +40,11 @@ type Person = Book
   ]
 
 test_insert :: Person
-test_insert = insert (Auth `Set.Ext` Set.Empty) undefined
+test_insert = insert (Auth `Set.Ext` Set.Empty) $ emptyBook
+  & #name     =: "person"
+  & #age      =: 6
+  & #bff      =: (emptyBook & #forever =: True)
+  & #complex  =: 6
 
 test_modify :: Person
 test_modify = P.modify (Auth `Set.Ext` Set.Empty) undefined (undefined :: Person)

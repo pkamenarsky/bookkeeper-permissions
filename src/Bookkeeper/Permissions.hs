@@ -38,6 +38,11 @@ import qualified Data.Type.Set as Set
 
 --------------------------------------------------------------------------------
 
+type Iso a b = (a -> b, b -> a)
+
+iso :: (a -> b) -> (b -> a) -> Iso a b
+iso = (,)
+
 data Star
 
 data a :|: b
@@ -76,28 +81,28 @@ type family UnpackPermissionM mode prf a where
   UnpackPermissionM mode prf (Permission prf' a)                     = Permission prf' a
 
 class UnpackPermission mode prf a where
-  unpackPermission :: Proxy mode -> Proxy prf -> Lens' a (UnpackPermissionM mode prf a)
+  unpackPermission :: Proxy mode -> Proxy prf -> Iso a (UnpackPermissionM mode prf a)
 
 instance ( Elim mode prf a
          , UnpackPermissionM mode prf (Permission '[mode :=> ()] a) ~ (ElimM mode prf a)
          ) => UnpackPermission mode prf (Permission '[mode :=> ()] a) where
-  unpackPermission mode prf = lens (\(Permission a) -> a ^. elim mode prf) (\(Permission s) a -> Permission (s & elim mode prf .~ a))
+  unpackPermission mode prf = iso (\(Permission a) -> fst (elim mode prf) a) (\a -> Permission (snd (elim mode prf) a))
 
 instance {-# OVERLAPPABLE #-} (UnpackPermissionM mode prf (Permission prf' a) ~ Permission prf' a) => UnpackPermission mode prf (Permission prf' a) where
-  unpackPermission mode prf = lens id (const id)
+  unpackPermission mode prf = iso id id
 
 type family ElimM mode prf a where
   ElimM mode prf (Book' kvs) = Book' (ElimBookM mode prf kvs)
   ElimM mode prf x           = x
 
 class Elim mode prf a where
-  elim :: Proxy mode -> Proxy prf -> Lens' a (ElimM mode prf a)
+  elim :: Proxy mode -> Proxy prf -> Iso a (ElimM mode prf a)
 
 instance (ElimBook mode prf kvs) => Elim mode prf (Book' kvs) where
-  elim mode prf = lens (\a -> (a ^. elimBook mode prf)) (\s a -> s & elimBook mode prf .~ a)
+  elim mode prf = iso (\a -> fst (elimBook mode prf) a) (\a -> snd (elimBook mode prf) a)
 
 instance {-# OVERLAPPABLE #-} (ElimM mode prf a ~ a) => Elim mode prf a where
-  elim _ _ = lens id (const id)
+  elim _ _ = iso id id
 
 type family ElimBookM mode prf a where
   ElimBookM mode prf '[] = '[]
@@ -105,42 +110,42 @@ type family ElimBookM mode prf a where
   ElimBookM mode prf ((k :=> v) ': m) = (k :=> ElimM mode prf v) ': ElimBookM mode prf m
 
 class ElimBook mode prf a where
-  elimBook :: Proxy mode -> Proxy prf -> Lens' (Book' a) (Book' (ElimBookM mode prf a))
+  elimBook :: Proxy mode -> Proxy prf -> Iso (Book' a) (Book' (ElimBookM mode prf a))
 
 instance (ElimBookM mode prf '[] ~ '[]) => ElimBook mode prf '[] where
-  elimBook _ _ = lens id (const id)
+  elimBook _ _ = iso id id
 
 instance {-# OVERLAPPABLE #-}
     ( UnpackPermission mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)
     , ElimBook mode prf m
     ) => ElimBook mode prf ((k :=> Permission prf' v) ': m) where
-  elimBook mode prf = lens
-    (\(Book (Map.Ext k v m)) -> Book (Map.Ext k ((cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) ^. unpackPermission mode prf) (getBook (Book m ^. elimBook mode prf))))
-    (\(Book (Map.Ext k v m)) (Book (Map.Ext k' v' m')) -> Book (Map.Ext k (cnvPermission ((cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) & unpackPermission mode prf .~ v')) (getBook (Book m & elimBook mode prf .~ Book m'))))
+  elimBook mode prf = iso
+    (\(Book (Map.Ext k v m)) -> Book (Map.Ext k (fst (unpackPermission mode prf) (cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v))) (getBook (fst (elimBook mode prf) (Book m)))))
+    (\(Book (Map.Ext k v m)) -> Book (Map.Ext k (cnvPermission (snd (unpackPermission mode prf) v :: Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) (getBook (snd (elimBook mode prf) (Book m)))))
 
 instance {-# OVERLAPPABLE #-}
     ( Elim mode prf v
     , ElimBook mode prf m
     , ElimBookM mode prf ((k :=> v) ': m) ~ ((k :=> ElimM mode prf v) ': ElimBookM mode prf m)
     ) => ElimBook mode prf ((k :=> v) ': m) where
-  elimBook mode prf = lens
-    (\(Book (Map.Ext k v m)) -> (Book (Map.Ext k (v ^. elim mode prf) (getBook (Book m ^. elim mode prf)))))
-    (\(Book (Map.Ext k v m)) (Book (Map.Ext k' v' m')) -> Book (Map.Ext k (v & elim mode prf .~ v') (getBook (Book m & elim mode prf .~ Book m'))))
+  elimBook mode prf = iso
+    (\(Book (Map.Ext k v m)) -> (Book (Map.Ext k (fst (elim mode prf) v) (getBook (fst (elim mode prf) (Book m))))))
+    (\(Book (Map.Ext k v m)) -> (Book (Map.Ext k (snd (elim mode prf) v) (getBook (snd (elim mode prf) (Book m))))))
 
 type family ElimListM mode lst a where
   ElimListM mode '[] a    = a
   ElimListM mode (x:xs) a = ElimListM mode xs (ElimM mode x a)
 
 class ElimList mode t a where
-  elimList :: Proxy mode -> Set.Set t -> Lens' a (ElimListM mode t a)
+  elimList :: Proxy mode -> Set.Set t -> Iso a (ElimListM mode t a)
 
 instance ElimList mode '[] a where
-  elimList _ _ = lens id (const id)
+  elimList _ _ = iso id id
 
 instance (Elim mode x a, ElimList mode xs (ElimM mode x a)) => ElimList mode (x : xs) a where
-  elimList mode (Set.Ext x xs) = lens
-    (\a -> a ^. (elim mode (Proxy :: Proxy x) . elimList mode xs))
-    (\s a -> s & (elim mode (Proxy :: Proxy x) . elimList mode xs) .~ a)
+  elimList mode (Set.Ext x xs) = iso
+    ((fst (elimList mode xs)) . (fst (elim mode (Proxy :: Proxy x))))
+    ((snd (elim mode (Proxy :: Proxy x))) . (snd (elimList mode xs)))
 
 --------------------------------------------------------------------------------
 
@@ -150,7 +155,9 @@ instance (s ~ s') => IsLabel s (Mode s') where
   fromLabel _ = Mode
 
 modify :: (ElimList "modify" prf a) => Set.Set prf -> (ElimListM "modify" prf a -> ElimListM "modify" prf a) -> a -> a
-modify prf f a = over (elimList (Proxy :: Proxy "modify") prf) f a
+modify prf f = to . f . from
+  where (from, to) = elimList (Proxy :: Proxy "modify") prf
 
 insert :: (ElimList "insert" prf a) => Set.Set prf -> (ElimListM "insert" prf a) -> a
-insert prf f = undefined
+insert prf a = to a
+  where (_, to) = elimList (Proxy :: Proxy "insert") prf
