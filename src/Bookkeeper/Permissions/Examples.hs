@@ -30,7 +30,8 @@ type Person = Book
        ] (Book
           '[ "forever" :=> Permission
              '[ "modify" :=> Admin
-              , "insert" :=> Auth] Bool
+              , "insert" :=> Auth
+              ] Bool
            ])
   , "complex" :=> Permission
       '[ "read"   :=> Admin
