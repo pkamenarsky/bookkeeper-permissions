@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE DataKinds #-}
@@ -14,6 +15,8 @@ module Bookkeeper.Permissions
   , Elim
   , ElimListM
   , ElimList
+  , Permission
+  , (:|:), (:&:)
   ) where
 
 import Prelude hiding (and)
@@ -33,6 +36,8 @@ import qualified Data.Type.Set as Set
 
 --------------------------------------------------------------------------------
 
+data Star
+
 data a :|: b
 data a :&: b
 data a :*: b
@@ -40,6 +45,7 @@ data a :*: b
 data Permission pr a = Permission a deriving Show
 
 type family ElimTerm1M prf x where
+  ElimTerm1M Star x           = ()
   ElimTerm1M prf (op () x)    = ElimTerm1M prf x
   ElimTerm1M prf (op x ())    = ElimTerm1M prf x
   ElimTerm1M prf (prf :&: x)  = ElimTerm1M prf x
@@ -141,5 +147,8 @@ data Mode (m :: Symbol) = Mode
 instance (s ~ s') => IsLabel s (Mode s') where
   fromLabel _ = Mode
 
-modify :: forall prf mode a. ElimList mode prf a => Mode mode -> Set.Set prf -> (ElimListM mode prf a -> ElimListM mode prf a) -> a -> a
-modify _ prf f a = over (elimList (Proxy :: Proxy mode) prf) f a
+modify :: (ElimList "modify" prf a) => Set.Set prf -> (ElimListM "modify" prf a -> ElimListM "modify" prf a) -> a -> a
+modify prf f a = over (elimList (Proxy :: Proxy "modify") prf) f a
+
+insert :: (ElimListM "insert" prf a ~ ()) => Set.Set prf -> ElimListM "insert" '[Star] a -> a
+insert prf a = undefined
