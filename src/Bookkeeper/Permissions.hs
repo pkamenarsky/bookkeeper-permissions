@@ -70,8 +70,9 @@ type family UnpackPermissionM mode prf a where
 class UnpackPermission mode prf a where
   unpackPermission :: Proxy mode -> Proxy prf -> Lens' a (UnpackPermissionM mode prf a)
 
-instance (Elim mode prf a, UnpackPermissionM mode prf (Permission '[mode :=> ()] a) ~ (ElimM mode prf a))
-       => UnpackPermission mode prf (Permission '[mode :=> ()] a) where
+instance ( Elim mode prf a
+         , UnpackPermissionM mode prf (Permission '[mode :=> ()] a) ~ (ElimM mode prf a)
+         ) => UnpackPermission mode prf (Permission '[mode :=> ()] a) where
   unpackPermission mode prf = lens (\(Permission a) -> a ^. elim mode prf) (\(Permission s) a -> Permission (s & elim mode prf .~ a))
 
 instance {-# OVERLAPPABLE #-} (UnpackPermissionM mode prf (Permission prf' a) ~ Permission prf' a) => UnpackPermission mode prf (Permission prf' a) where
@@ -85,7 +86,7 @@ class Elim mode prf a where
   elim :: Proxy mode -> Proxy prf -> Lens' a (ElimM mode prf a)
 
 instance (ElimBook mode prf kvs) => Elim mode prf (Book' kvs) where
-    elim mode prf = lens (\a -> (a ^. elimBook mode prf)) (\s a -> s & elimBook mode prf .~ a)
+  elim mode prf = lens (\a -> (a ^. elimBook mode prf)) (\s a -> s & elimBook mode prf .~ a)
 
 instance {-# OVERLAPPABLE #-} (ElimM mode prf a ~ a) => Elim mode prf a where
   elim _ _ = lens id (const id)
@@ -104,11 +105,10 @@ instance (ElimBookM mode prf '[] ~ '[]) => ElimBook mode prf '[] where
 instance {-# OVERLAPPABLE #-}
     ( UnpackPermission mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)
     , ElimBook mode prf m
-    )
-    => ElimBook mode prf ((k :=> Permission prf' v) ': m) where
+    ) => ElimBook mode prf ((k :=> Permission prf' v) ': m) where
   elimBook mode prf = lens
-      (\(Book (Map.Ext k v m)) -> Book (Map.Ext k ((cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) ^. unpackPermission mode prf) (getBook (Book m ^. elimBook mode prf))))
-      (\(Book (Map.Ext k v m)) (Book (Map.Ext k' v' m')) -> Book (Map.Ext k (cnvPermission ((cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) & unpackPermission mode prf .~ v')) (getBook (Book m & elimBook mode prf .~ Book m'))))
+    (\(Book (Map.Ext k v m)) -> Book (Map.Ext k ((cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) ^. unpackPermission mode prf) (getBook (Book m ^. elimBook mode prf))))
+    (\(Book (Map.Ext k v m)) (Book (Map.Ext k' v' m')) -> Book (Map.Ext k (cnvPermission ((cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) & unpackPermission mode prf .~ v')) (getBook (Book m & elimBook mode prf .~ Book m'))))
 
 instance {-# OVERLAPPABLE #-}
       ( Elim mode prf v
@@ -116,8 +116,8 @@ instance {-# OVERLAPPABLE #-}
       , ElimBookM mode prf ((k :=> v) ': m) ~ ((k :=> ElimM mode prf v) ': ElimBookM mode prf m)
       ) => ElimBook mode prf ((k :=> v) ': m) where
   elimBook mode prf = lens
-      (\(Book (Map.Ext k v m)) -> (Book (Map.Ext k (v ^. elim mode prf) (getBook (Book m ^. elim mode prf)))))
-      (\(Book (Map.Ext k v m)) (Book (Map.Ext k' v' m')) -> Book (Map.Ext k (v & elim mode prf .~ v') (getBook (Book m & elim mode prf .~ Book m'))))
+    (\(Book (Map.Ext k v m)) -> (Book (Map.Ext k (v ^. elim mode prf) (getBook (Book m ^. elim mode prf)))))
+    (\(Book (Map.Ext k v m)) (Book (Map.Ext k' v' m')) -> Book (Map.Ext k (v & elim mode prf .~ v') (getBook (Book m & elim mode prf .~ Book m'))))
 
 type family ElimListM mode lst a where
   ElimListM mode '[] a    = a
@@ -133,3 +133,13 @@ instance (Elim mode x a, ElimList mode xs (ElimM mode x a)) => ElimList mode (x 
   elimList mode (Set.Ext x xs) = lens
     (\a -> a ^. (elim mode (Proxy :: Proxy x) . elimList mode xs))
     (\s a -> s & (elim mode (Proxy :: Proxy x) . elimList mode xs) .~ a)
+
+--------------------------------------------------------------------------------
+
+data Mode (m :: Symbol) = Mode
+
+instance (s ~ s') => IsLabel s (Mode s') where
+  fromLabel _ = Mode
+
+modify :: forall prf mode a. ElimList mode prf a => Mode mode -> Set.Set prf -> (ElimListM mode prf a -> ElimListM mode prf a) -> a -> a
+modify _ prf f a = over (elimList (Proxy :: Proxy mode) prf) f a
