@@ -1,0 +1,22 @@
+name:                bookkeeper-permissions
+version:             0.1.0.0
+synopsis:            Permission handling for bookkeeper records
+description:         Please see README.md
+homepage:            https://github.com/pkamenarsky/bookkeeper-permissions
+license:             BSD3
+license-file:        LICENSE
+author:              Philip Kamenarsky
+maintainer:          p.kamenarsky@gmail.com
+copyright:           2016 Philip Kamenarsky
+category:            Web
+build-type:          Data Structures, Records
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Permissions
+  default-language:    Haskell2010
+  build-depends:       base,
+                       bookkeeper,
+                       microlens,
+                       type-level-sets,
