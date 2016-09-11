@@ -1,18 +1,29 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Bookkeeper.Permissions.Examples where
 
-import Bookkeeper
-import Bookkeeper.Permissions
+import Data.Proxy
 
-data Admin
-data Auth
+import Bookkeeper
+import Bookkeeper.Permissions as P
+
+import qualified Data.Type.Set as Set
+
+data Admin = Admin
+data Auth = Auth
 
 type PersonB = Book
- '[ "name" :=> Permission '["read" :=> (Admin :&: Auth)] String
-  , "age"  :=> Permission '["read" :=> Auth] Int
-  , "bff"  :=> Permission '["read" :=> Admin] (Book
-    '[ "forever" :=> Permission '["read" :=> Admin] Bool ])
-  , "complex" :=> Permission '["read" :=> Admin, "modify" :=> Admin] Double
+ '[ "name" :=> Permission '["modify" :=> (Admin :&: Auth), "insert" :=> Auth] String
+  , "age"  :=> Permission '["modify" :=> Auth, "insert" :=> Auth] Int
+  , "bff"  :=> Permission '["modify" :=> Admin, "insert" :=> Auth] (Book
+    '[ "forever" :=> Permission '["modify" :=> Admin, "insert" :=> Auth] Bool ])
+  , "complex" :=> Permission '["read" :=> Admin, "modify" :=> Admin, "insert" :=> Auth] Double
   ]
+
+test_insert :: PersonB
+test_insert = insert (Auth `Set.Ext` Set.Empty) undefined
+
+test_modify :: PersonB
+test_modify = P.modify (Auth `Set.Ext` Set.Empty) undefined (undefined :: PersonB)

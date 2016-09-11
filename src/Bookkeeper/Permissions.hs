@@ -17,6 +17,8 @@ module Bookkeeper.Permissions
   , ElimList
   , Permission
   , (:|:), (:&:)
+  , modify
+  , insert
   ) where
 
 import Prelude hiding (and)
@@ -28,8 +30,8 @@ import Data.Proxy
 
 import Lens.Micro
 
-import Bookkeeper
-import Bookkeeper.Internal
+import Bookkeeper hiding (modify)
+import Bookkeeper.Internal hiding (modify)
 
 import qualified Data.Type.Map as Map
 import qualified Data.Type.Set as Set
@@ -45,7 +47,6 @@ data a :*: b
 data Permission pr a = Permission a deriving Show
 
 type family ElimTerm1M prf x where
-  ElimTerm1M Star x           = ()
   ElimTerm1M prf (op () x)    = ElimTerm1M prf x
   ElimTerm1M prf (op x ())    = ElimTerm1M prf x
   ElimTerm1M prf (prf :&: x)  = ElimTerm1M prf x
@@ -59,6 +60,7 @@ type family ElimTerm1M prf x where
 data ModeNotFound
 
 type family ElimTermM prf x where
+  ElimTermM Star x              = ()
   ElimTermM prf (Just (op x y)) = ElimTerm1M prf (op (ElimTermM prf  (Just x)) (ElimTermM prf  (Just y)))
   ElimTermM prf (Just x)        = ElimTerm1M prf x
   ElimTermM prf Nothing         = ModeNotFound
@@ -150,5 +152,5 @@ instance (s ~ s') => IsLabel s (Mode s') where
 modify :: (ElimList "modify" prf a) => Set.Set prf -> (ElimListM "modify" prf a -> ElimListM "modify" prf a) -> a -> a
 modify prf f a = over (elimList (Proxy :: Proxy "modify") prf) f a
 
-insert :: (ElimListM "insert" prf a ~ ()) => Set.Set prf -> ElimListM "insert" '[Star] a -> a
-insert prf a = undefined
+insert :: (ElimList "insert" prf a) => Set.Set prf -> (ElimListM "insert" prf a) -> a
+insert prf f = undefined
