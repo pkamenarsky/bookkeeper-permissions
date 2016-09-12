@@ -7,8 +7,6 @@
 
 module Bookkeeper.Permissions.Examples where
 
-import Data.Proxy
-
 import Bookkeeper
 import Bookkeeper.Internal
 import Bookkeeper.Permissions as P
@@ -69,4 +67,4 @@ test_insert' = insertKey $ insert (Auth `Set.Ext` Set.Empty) $ emptyBook
 
 test_modify :: Person
 test_modify = P.modify (Auth `Set.Ext` Set.Empty) f person
-  where f person = person & #age =: 6
+  where f p = p & #age =: 6

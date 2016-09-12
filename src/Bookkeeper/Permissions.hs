@@ -188,16 +188,16 @@ type family ElimTerm1M prf x where
 data ModeNotFound
 
 type family ElimTermM prf x where
-  ElimTermM Star x              = ()
-  ElimTermM prf (Just (op x y)) = ElimTerm1M prf (op (ElimTermM prf  (Just x)) (ElimTermM prf  (Just y)))
-  ElimTermM prf (Just x)        = ElimTerm1M prf x
-  ElimTermM prf Nothing         = ModeNotFound
+  ElimTermM Star x               = ()
+  ElimTermM prf ('Just (op x y)) = ElimTerm1M prf (op (ElimTermM prf  ('Just x)) (ElimTermM prf  ('Just y)))
+  ElimTermM prf ('Just x)        = ElimTerm1M prf x
+  ElimTermM prf 'Nothing         = ModeNotFound
 
 --------------------------------------------------------------------------------
 
 type family UnpackPermissionM mode prf a where
   UnpackPermissionM mode prf (Permission '[mode :=> ()] a)           = ElimM mode prf a
-  UnpackPermissionM mode prf (Permission '[mode :=> ModeNotFound] a) = TypeError (Text "Mode " :<>: ShowType mode :<>: Text " isn't defined for all fields")
+  UnpackPermissionM mode prf (Permission '[mode :=> ModeNotFound] a) = TypeError ('Text "Mode " ':<>: 'ShowType mode ':<>: 'Text " isn't defined for all fields")
   UnpackPermissionM mode prf (Permission prf' a)                     = Permission prf' a
 
 class UnpackPermission mode prf a where
@@ -209,7 +209,7 @@ instance ( Elim mode prf a
   unpackPermission mode prf = iso (\(Permission a) -> fst (elim mode prf) a) (\a -> Permission (snd (elim mode prf) a))
 
 instance {-# OVERLAPPABLE #-} (UnpackPermissionM mode prf (Permission prf' a) ~ Permission prf' a) => UnpackPermission mode prf (Permission prf' a) where
-  unpackPermission mode prf = iso id id
+  unpackPermission _ _ = iso id id
 
 type family ElimM mode prf a where
   ElimM mode prf (Book' kvs) = Book' (ElimBookM mode prf kvs)
@@ -263,7 +263,7 @@ instance ElimList mode '[] a where
   elimList _ _ = iso id id
 
 instance (Elim mode x a, ElimList mode xs (ElimM mode x a)) => ElimList mode (x : xs) a where
-  elimList mode (Set.Ext x xs) = iso
+  elimList mode (Set.Ext _ xs) = iso
     ((fst (elimList mode xs)) . (fst (elim mode (Proxy :: Proxy x))))
     ((snd (elim mode (Proxy :: Proxy x))) . (snd (elimList mode xs)))
 
