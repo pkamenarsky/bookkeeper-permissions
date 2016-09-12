@@ -12,10 +12,13 @@
 
 module Bookkeeper.Permissions
   (
--- * Preamble
+-- * Introduction
 --
 -- | This experimental library adds permissions to
--- <https://hackage.haskell.org/package/bookkeeper bookkeeper> records.
+-- <https://hackage.haskell.org/package/bookkeeper bookkeeper> records. Its
+-- intended purpose is to be used as a building block in other libraries
+-- providing general access to data in some form or other (database bindings,
+-- web servers etc).
 --
 -- A common pattern in user facing programs is the following:
 --
@@ -23,19 +26,24 @@ module Bookkeeper.Permissions
 -- >   when admin $ do
 -- >    ...
 --
--- But this is not enforced by the type system and thus can easily be forgotten
--- or gotten wrong. <https://hackage.haskell.org/package/lio One approach> to
--- getting the type system work for us is by marking specific regions of code as
--- requiring a specific /security policy/, and not allowing code with a lower
--- security policy to call code with a higher security policy.
+-- But this is not enforced by the type system and can thus easily be forgotten
+-- or gotten wrong. The approach that this library takes to getting the type
+-- system work for us is to protect /data/ by requiring that record fields are
+-- marked with specific /permissions/ that need to be provided when accessing
+-- said fields.
 --
--- The approach that this library takes is to require /data/ being marked with
--- /permissions/ that need to be /proven/ when accessing said data.
+-- This library uses <https://hackage.haskell.org/package/bookkeeper bookkeeper>
+-- for the sake of simplicity, but aorting it to another record library like
+-- <http://hackage.haskell.org/package/rawr rawr> shouldn't be too much work.
+-- The aim is to see if the approach taken is generally useful and generalizes
+-- well.
 --
--- The general idea is to mark record fields as requiring specific permissions:
+-- Let's start by defining some custom permissions:
 --
 -- > data Admin = Admin
 -- > data Auth  = Auth
+--
+-- And a record with protected fields:
 --
 -- > type Person = Book
 -- >  '[ "name" :=> Permission
@@ -48,16 +56,32 @@ module Bookkeeper.Permissions
 -- >        ] Int
 -- >  ]
 --
--- A 'Permission' definition has the following form:
+-- This is a normal 'Book', except that its fields are protected by the opaque
+-- data type 'Permission'. A 'Permission' takes the following form:
 --
 -- > Permission [ mode :=> permissions, mode2 :=> permissions2 ] type
 --
--- Different permissions can be mixed with the ':|:' and ':&:' operators, i.e:
+-- /Modes/ help define permissions for different purposes, i.e. reading or
+-- modifying. Modes can be arbitrary, but certain functions like 'modify' or
+-- 'insert' expect certain modes to be present.
 --
--- > Permission [ "modify" :=> (Admin :&: Auth)]
+-- Different permissions can be mixed with the ':|:' (/boolean or/) and ':&:'
+-- (/boolean and/) operators, i.e:
 --
--- Now, when modifying a record a list of permissions needs to be provided as
--- well:
+-- > Permission [ "modify" :=> (Admin :&: Auth)] String
+--
+-- This means that the field can be accessed only when /both/ permissions
+-- 'Admin' and 'Auth' are provided. Contrast this with:
+--
+-- > Permission [ "modify" :=> (Admin :|: Auth)] String
+--
+-- Which means that access is granted by providing at least one of the
+-- required permissions.
+--
+-- ':|:' and ':&:' can be nested arbitrarily.
+--
+-- Now, the general idea is to provide a list of permissions when
+-- accessing protected data:
 --
 -- > modify (Auth `Set.Ext` Set.Empty) f person
 -- >   where f = ...
@@ -66,14 +90,18 @@ module Bookkeeper.Permissions
 -- constructor from all fields that require less or equal permissions to those
 -- provided in the permissions list.
 --
--- For example, the above list of '[Auth] would eliminate the 'Permission'
+-- For example, the above list of '[Auth]' would eliminate the 'Permission'
 -- constructor from the field "age", but would leave the type of "name" as
 --
 -- > Permission [ "modify" :=> Admin ] String
 --
 -- meaning that it can't be accessed without providing the permission 'Admin'.
+-- In constrast, the following:
 --
+-- > modify (Admin `Set.Ext` (Auth `Set.Ext` Set.Empty)) f person
+-- >   where f = ...
 --
+-- would provide access to all fields.
 
 -- * Permissions
     Permission
