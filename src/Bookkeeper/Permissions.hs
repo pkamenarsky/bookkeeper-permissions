@@ -33,7 +33,7 @@ module Bookkeeper.Permissions
 -- said fields.
 --
 -- This library uses <https://hackage.haskell.org/package/bookkeeper bookkeeper>
--- for the sake of simplicity, but aorting it to another record library like
+-- for the sake of simplicity, but porting it to another record library like
 -- <http://hackage.haskell.org/package/rawr rawr> shouldn't be too much work.
 -- The aim is to see if the approach taken is generally useful and generalizes
 -- well.
@@ -75,7 +75,7 @@ module Bookkeeper.Permissions
 --
 -- > Permission [ "modify" :=> (Admin :|: Auth)] String
 --
--- Which means that access is granted by providing at least one of the
+-- which means that access is granted by providing at least one of the
 -- required permissions.
 --
 -- ':|:' and ':&:' can be nested arbitrarily.
@@ -88,14 +88,21 @@ module Bookkeeper.Permissions
 --
 -- The provided list of permissions is used to /eliminate/ the 'Permission'
 -- constructor from all fields that require less or equal permissions to those
--- provided in the permissions list.
---
--- For example, the above list of '[Auth]' would eliminate the 'Permission'
--- constructor from the field "age", but would leave the type of "name" as
+-- provided in the permissions list. The above would eliminate the 'Permission'
+-- constructor from the field "age", but would leave the type of "name" as:
 --
 -- > Permission [ "modify" :=> Admin ] String
 --
 -- meaning that it can't be accessed without providing the permission 'Admin'.
+-- The whole type of 'f' would be:
+--
+-- > f :: Book' '[ "age" :=> Int
+-- >             , "name" :=> Permission '["modify" :=> Admin] String
+-- >             ]
+-- >   -> Book' '[ "age" :=> Int
+-- >             , "name" :=> Permission '["modify" :=> Admin] String
+-- >             ]
+--
 -- In constrast, the following:
 --
 -- > modify (Admin `Set.Ext` (Auth `Set.Ext` Set.Empty)) f person
