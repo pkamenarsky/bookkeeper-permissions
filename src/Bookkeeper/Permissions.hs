@@ -11,7 +11,36 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Bookkeeper.Permissions
-  ( ElimM
+  (
+-- * Preamble
+--
+-- | This package adds permissions to <https://hackage.haskell.org/package/bookkeeper bookkeeper> records.
+--
+-- The general idea is to mark record fields as having specific permissions:
+--
+-- > data Admin = Admin
+-- > data Auth  = Auth
+--
+-- > type Person = Book
+-- >  '[ "name" :=> Permission
+-- >       '[ "modify" :=> (Admin :&: Auth)
+-- >        , "insert" :=> Auth
+-- >        ] String
+-- >   , "age"  :=> Permission
+-- >       '[ "modify" :=> Auth
+-- >        , "insert" :=> Auth
+-- >        ] Int
+-- >  ]
+--
+-- A 'Permission' definition has the following form:
+--
+-- > Permission [ mode :=> permissions, mode2 :=> permissions2 ] type
+--
+-- Different permissions can be mixed with the ':|:' and ':&:' operators, i.e:
+--
+-- > Permission [ "modify" :=> (Admin :&: Auth)]
+--
+    ElimM
   , Elim
   , ElimListM
   , ElimList
