@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TypeOperators #-}
@@ -42,6 +43,13 @@ type Person = Book
        ] String
   ]
 
+person :: Person
+person = emptyBook
+  & #name =: unsafePermission "person"
+  & #age  =: unsafePermission 6
+  & #bff  =: unsafePermission (emptyBook & #forever =: unsafePermission True)
+  & #key  =: unsafePermission "key"
+
 test_insert :: Person
 test_insert = insert (Auth `Set.Ext` Set.Empty) $ emptyBook
   & #name =: "person"
@@ -59,4 +67,5 @@ test_insert' = insertKey $ insert (Auth `Set.Ext` Set.Empty) $ emptyBook
   & #bff  =: (emptyBook & #forever =: True)
 
 test_modify :: Person
-test_modify = P.modify (Auth `Set.Ext` Set.Empty) undefined (undefined :: Person)
+test_modify = P.modify (Auth `Set.Ext` Set.Empty) f person
+  where f person = person & #age %: 6
