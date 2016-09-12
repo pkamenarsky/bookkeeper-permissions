@@ -118,13 +118,6 @@ module Bookkeeper.Permissions
 -- >   where f = ...
 --
 -- would provide access to all fields.
---
--- The purpose of this library is to be integrated in other libraries that
--- provide access to data in some form. For that purpose, functions like
--- 'read', 'modify' and 'insert' are provided. These functions expect a
--- type level list of permissions in order to infer a type containing
--- fields with possibly eliminated 'Permission' constructors. How this list
--- is generated is up to the calling library.
 
 -- * Permissions
     Permission
@@ -282,16 +275,37 @@ instance (s ~ s') => IsLabel s (Mode s') where
   fromLabel _ = Mode
 
 -- | Read a protected value.
+--
+-- The purpose of this library is to be integrated in other libraries that
+-- provide access to data in some form. For that purpose, functions like
+-- 'read', 'modify' and 'insert' are provided. These functions expect a
+-- type level list of permissions in order to infer a type containing
+-- fields with possibly eliminated 'Permission' constructors. How this list
+-- is generated is up to the calling library.
 read :: (ElimList "read" prf a) => Set.Set prf -> a -> (ElimListM "read" prf a)
 read prf a = from a
   where (from, _) = elimList (Proxy :: Proxy "read") prf
 
 -- | Modify a protected value.
+--
+-- The purpose of this library is to be integrated in other libraries that
+-- provide access to data in some form. For that purpose, functions like
+-- 'read', 'modify' and 'insert' are provided. These functions expect a
+-- type level list of permissions in order to infer a type containing
+-- fields with possibly eliminated 'Permission' constructors. How this list
+-- is generated is up to the calling library.
 modify :: (ElimList "modify" prf a) => Set.Set prf -> (ElimListM "modify" prf a -> ElimListM "modify" prf a) -> a -> a
 modify prf f = to . f . from
   where (from, to) = elimList (Proxy :: Proxy "modify") prf
 
 -- | Create a protected value.
+--
+-- The purpose of this library is to be integrated in other libraries that
+-- provide access to data in some form. For that purpose, functions like
+-- 'read', 'modify' and 'insert' are provided. These functions expect a
+-- type level list of permissions in order to infer a type containing
+-- fields with possibly eliminated 'Permission' constructors. How this list
+-- is generated is up to the calling library.
 insert :: (ElimList "insert" prf a) => Set.Set prf -> (ElimListM "insert" prf a) -> a
 insert prf a = to a
   where (_, to) = elimList (Proxy :: Proxy "insert") prf
