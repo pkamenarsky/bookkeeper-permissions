@@ -74,10 +74,19 @@ module Bookkeeper.Permissions
 -- meaning that it can't be accessed without providing the permission 'Admin'.
 --
 --
+
+-- * Permissions
     Permission
   , (:|:), (:&:)
+
+-- * Modification
   , modify
+
+-- * Insertion
   , insert
+
+-- * Unsafe
+  , unsafePermission
   ) where
 
 import Prelude hiding (and)
@@ -108,6 +117,12 @@ data a :*: b
 
 data Permission pr a = Permission a deriving Show
 
+cnvPermission :: Permission prf a -> Permission prf' a
+cnvPermission (Permission a) = Permission a
+
+unsafePermission :: a -> Permission prf a
+unsafePermission = Permission
+
 type family ElimTerm1M prf x where
   ElimTerm1M prf (op () x)    = ElimTerm1M prf x
   ElimTerm1M prf (op x ())    = ElimTerm1M prf x
@@ -128,9 +143,6 @@ type family ElimTermM prf x where
   ElimTermM prf Nothing         = ModeNotFound
 
 --------------------------------------------------------------------------------
-
-cnvPermission :: Permission prf a -> Permission prf' a
-cnvPermission (Permission a) = Permission a
 
 type family UnpackPermissionM mode prf a where
   UnpackPermissionM mode prf (Permission '[mode :=> ()] a)           = ElimM mode prf a
