@@ -56,11 +56,25 @@ module Bookkeeper.Permissions
 --
 -- > Permission [ "modify" :=> (Admin :&: Auth)]
 --
-    ElimM
-  , Elim
-  , ElimListM
-  , ElimList
-  , Permission
+-- Now, when modifying a record a list of permissions needs to be provided as
+-- well:
+--
+-- > modify (Auth `Set.Ext` Set.Empty) f person
+-- >   where f = ...
+--
+-- The provided list of permissions is used to /eliminate/ the 'Permission'
+-- constructor from all fields that require less or equal permissions to those
+-- provided in the permissions list.
+--
+-- For example, the above list of '[Auth] would eliminate the 'Permission'
+-- constructor from the field "age", but would leave the type of "name" as
+--
+-- > Permission [ "modify" :=> Admin ] String
+--
+-- meaning that it can't be accessed without providing the permission 'Admin'.
+--
+--
+    Permission
   , (:|:), (:&:)
   , modify
   , insert
@@ -204,6 +218,3 @@ modify prf f = to . f . from
 insert :: (ElimList "insert" prf a) => Set.Set prf -> (ElimListM "insert" prf a) -> a
 insert prf a = to a
   where (_, to) = elimList (Proxy :: Proxy "insert") prf
-
-set' :: (new ~ ((field :=> val) ': old)) => Key field -> val -> Book' old -> Book' new
-set' = undefined
