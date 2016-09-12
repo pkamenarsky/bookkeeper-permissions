@@ -114,6 +114,9 @@ module Bookkeeper.Permissions
     Permission
   , (:|:), (:&:)
 
+-- * Reading
+  , Bookkeeper.Permissions.read
+
 -- * Modification
   , modify
 
@@ -203,7 +206,7 @@ class Elim mode prf a where
   elim :: Proxy mode -> Proxy prf -> Iso a (ElimM mode prf a)
 
 instance (ElimBook mode prf kvs) => Elim mode prf (Book' kvs) where
-  elim mode prf = iso (\a -> fst (elimBook mode prf) a) (\a -> snd (elimBook mode prf) a)
+  elim mode prf = iso (\a -> (fst (elimBook mode prf) a)) (\a -> (snd (elimBook mode prf) a))
 
 instance {-# OVERLAPPABLE #-} (ElimM mode prf a ~ a) => Elim mode prf a where
   elim _ _ = iso id id
@@ -257,6 +260,10 @@ data Mode (m :: Symbol) = Mode
 
 instance (s ~ s') => IsLabel s (Mode s') where
   fromLabel _ = Mode
+
+read :: (ElimList "insert" prf a) => Set.Set prf -> a -> (ElimListM "insert" prf a)
+read prf a = from a
+  where (from, _) = elimList (Proxy :: Proxy "insert") prf
 
 modify :: (ElimList "modify" prf a) => Set.Set prf -> (ElimListM "modify" prf a -> ElimListM "modify" prf a) -> a -> a
 modify prf f = to . f . from

@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedLabels #-}
@@ -68,4 +69,4 @@ test_insert' = insertKey $ insert (Auth `Set.Ext` Set.Empty) $ emptyBook
 
 test_modify :: Person
 test_modify = P.modify (Auth `Set.Ext` Set.Empty) f person
-  where f person = person & #age %: 6
+  where f person = person & #age =: 6
