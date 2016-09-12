@@ -56,8 +56,17 @@ module Bookkeeper.Permissions
 -- >        ] Int
 -- >  ]
 --
--- This is a normal 'Book', except that its fields are protected by the opaque
--- data type 'Permission'. A 'Permission' takes the following form:
+-- /Note:/ 'unsafePermission' shouldn't be called from user code. It is intended
+-- to be called by other libraries only (i.e. database access layer). It's
+-- only used here to easily create a value with protected fields.
+--
+-- > person :: Person
+-- > person = emptyBook
+-- >   & #name =: unsafePermission "person"
+-- >   & #age  =: unsafePermission 6
+--
+-- This is a normal 'Book', except that its fields are protected by the
+-- opaque data type 'Permission'. A 'Permission' takes the following form:
 --
 -- > Permission [ mode :=> permissions, mode2 :=> permissions2 ] type
 --
