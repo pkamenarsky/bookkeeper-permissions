@@ -28,8 +28,6 @@ import GHC.OverloadedLabels
 
 import Data.Proxy
 
-import Lens.Micro
-
 import Bookkeeper hiding (modify)
 import Bookkeeper.Internal hiding (modify)
 
@@ -161,3 +159,6 @@ modify prf f = to . f . from
 insert :: (ElimList "insert" prf a) => Set.Set prf -> (ElimListM "insert" prf a) -> a
 insert prf a = to a
   where (_, to) = elimList (Proxy :: Proxy "insert") prf
+
+set' :: (new ~ ((field :=> val) ': old)) => Key field -> val -> Book' old -> Book' new
+set' = undefined

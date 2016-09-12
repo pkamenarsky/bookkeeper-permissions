@@ -8,8 +8,10 @@ module Bookkeeper.Permissions.Examples where
 import Data.Proxy
 
 import Bookkeeper
+import Bookkeeper.Internal
 import Bookkeeper.Permissions as P
 
+import qualified Data.Type.Map as Map
 import qualified Data.Type.Set as Set
 
 data Admin = Admin
@@ -33,19 +35,28 @@ type Person = Book
               , "insert" :=> Auth
               ] Bool
            ])
-  , "complex" :=> Permission
+  , "key" :=> Permission
       '[ "read"   :=> Admin
        , "modify" :=> Admin
        , "insert" :=> Auth
-       ] Double
+       ] String
   ]
 
 test_insert :: Person
 test_insert = insert (Auth `Set.Ext` Set.Empty) $ emptyBook
-  & #name     =: "person"
-  & #age      =: 6
-  & #bff      =: (emptyBook & #forever =: True)
-  & #complex  =: 6
+  & #name =: "person"
+  & #age  =: 6
+  & #bff  =: (emptyBook & #forever =: True)
+  & #key  =: "key"
+
+insertKey :: Book' (old Map.:\ "key") -> Book' old
+insertKey = undefined
+
+test_insert' :: Person
+test_insert' = insertKey $ insert (Auth `Set.Ext` Set.Empty) $ emptyBook
+  & #name =: "person"
+  & #age  =: 6
+  & #bff  =: (emptyBook & #forever =: True)
 
 test_modify :: Person
 test_modify = P.modify (Auth `Set.Ext` Set.Empty) undefined (undefined :: Person)
