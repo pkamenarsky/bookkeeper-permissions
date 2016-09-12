@@ -14,9 +14,25 @@ module Bookkeeper.Permissions
   (
 -- * Preamble
 --
--- | This package adds permissions to <https://hackage.haskell.org/package/bookkeeper bookkeeper> records.
+-- | This experimental library adds permissions to
+-- <https://hackage.haskell.org/package/bookkeeper bookkeeper> records.
 --
--- The general idea is to mark record fields as having specific permissions:
+-- A common pattern in user facing programs is the following:
+--
+-- > doAdminStuff admin = do
+-- >   when admin $ do
+-- >    ...
+--
+-- But this is not enforced by the type system and thus can easily be forgotten
+-- or gotten wrong. <https://hackage.haskell.org/package/lio One approach> to
+-- getting the type system work for us is by marking specific regions of code as
+-- requiring a specific /security policy/, and not allowing code with a lower
+-- security policy to call code with a higher security policy.
+--
+-- The approach that this library takes is to require /data/ being marked with
+-- /permissions/ that need to be /proven/ when accessing said data.
+--
+-- The general idea is to mark record fields as requiring specific permissions:
 --
 -- > data Admin = Admin
 -- > data Auth  = Auth
