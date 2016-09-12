@@ -118,6 +118,13 @@ module Bookkeeper.Permissions
 -- >   where f = ...
 --
 -- would provide access to all fields.
+--
+-- The purpose of this library is to be integrated in other libraries that
+-- provide access to data in some form. For that purpose, functions like
+-- 'read', 'modify' and 'insert' are provided. These functions expect a
+-- type level list of permissions in order to infer a type containing
+-- fields with possibly eliminated 'Permission' constructors. How this list
+-- is generated is up to the calling library.
 
 -- * Permissions
     Permission
@@ -158,15 +165,19 @@ iso = (,)
 
 data Star
 
+-- | Type level boolean /or/.
 data a :|: b
-data a :&: b
-data a :*: b
 
+-- | Type level boolean /and/.
+data a :&: b
+
+-- | An opaque data type used for protecting record fields.
 data Permission pr a = Permission a deriving Show
 
 cnvPermission :: Permission prf a -> Permission prf' a
 cnvPermission (Permission a) = Permission a
 
+-- | Used to create protected values. Shouldn't be called from user code.
 unsafePermission :: a -> Permission prf a
 unsafePermission = Permission
 
@@ -270,14 +281,17 @@ data Mode (m :: Symbol) = Mode
 instance (s ~ s') => IsLabel s (Mode s') where
   fromLabel _ = Mode
 
-read :: (ElimList "insert" prf a) => Set.Set prf -> a -> (ElimListM "insert" prf a)
+-- | Read a protected value.
+read :: (ElimList "read" prf a) => Set.Set prf -> a -> (ElimListM "read" prf a)
 read prf a = from a
-  where (from, _) = elimList (Proxy :: Proxy "insert") prf
+  where (from, _) = elimList (Proxy :: Proxy "read") prf
 
+-- | Modify a protected value.
 modify :: (ElimList "modify" prf a) => Set.Set prf -> (ElimListM "modify" prf a -> ElimListM "modify" prf a) -> a -> a
 modify prf f = to . f . from
   where (from, to) = elimList (Proxy :: Proxy "modify") prf
 
+-- | Create a protected value.
 insert :: (ElimList "insert" prf a) => Set.Set prf -> (ElimListM "insert" prf a) -> a
 insert prf a = to a
   where (_, to) = elimList (Proxy :: Proxy "insert") prf
