@@ -386,7 +386,7 @@ instance (GMapElim mode prf a1 a2, GMapElim mode prf b1 b2) => GMapElim mode prf
     )
 
 instance GMapElim mode prf (K1 R f) (K1 R f) where
-  gMapElim _ _ = iso -- iso id id
+  gMapElim _ _ = iso -- id id
     (\(K1 x) -> (K1 x))
     (\(K1 x) -> (K1 x))
 
