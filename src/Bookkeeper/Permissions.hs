@@ -360,8 +360,14 @@ class MapElim mode prf a b where
 -}
 
 type family MapRep a where
-  MapRep (M1 a b c d) = M1 a b c (MapRep d)
-  MapRep (f U1) = (f U1)
+  MapRep (M1 i c f p) = M1 i c (MapRep (Rep (f p) p))
+  MapRep (K1 i c p) = K1 i (MapRep c p)
+  {-
+  MapRep ((f :*: g) p) = (f :*: g) p
+  MapRep ((f :+: g) p) = (f :+: g) p
+  MapRep (U1 p) = U1 p
+  MapRep x = Double
+  -}
 
 mapElim :: (Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
 mapElim mode prf = iso
