@@ -1,7 +1,8 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedLabels #-}
@@ -134,12 +135,16 @@ module Bookkeeper.Permissions
 
 -- * Unsafe
   , unsafePermission
+  , unsafeUnpackPermission
   ) where
 
 import Prelude hiding (and)
 
+import Data.Typeable
+
 import GHC.TypeLits
 import GHC.OverloadedLabels
+import GHC.Generics
 
 import Data.Proxy
 
@@ -165,7 +170,7 @@ data a :|: b
 data a :&: b
 
 -- | An opaque data type used for protecting record fields.
-data Permission pr a = Permission a deriving Show
+data Permission pr a = Permission a deriving (Eq, Generic, Typeable, Show)
 
 cnvPermission :: Permission prf a -> Permission prf' a
 cnvPermission (Permission a) = Permission a
@@ -173,6 +178,10 @@ cnvPermission (Permission a) = Permission a
 -- | Used to create protected values. Shouldn't be called from user code.
 unsafePermission :: a -> Permission prf a
 unsafePermission = Permission
+
+-- | Used to unpack protected values. Shouldn't be called from user code.
+unsafeUnpackPermission :: Permission prf a -> a
+unsafeUnpackPermission (Permission a) = a
 
 type family ElimTerm1M prf x where
   ElimTerm1M prf (op () x)    = ElimTerm1M prf x
