@@ -159,6 +159,8 @@ import Bookkeeper.Internal hiding (modify)
 import qualified Data.Type.Map as Map
 import qualified Data.Type.Set as Set
 
+import Unsafe.Coerce
+
 --------------------------------------------------------------------------------
 
 type Iso a b = (a -> b, b -> a)
@@ -335,15 +337,63 @@ insert prf a = to a
 
 --------------------------------------------------------------------------------
 
+data A = A Int Int deriving (Show, Generic)
+data B = B Int Int deriving (Show, Generic)
+data C = C (Permission String Int) Int deriving (Show, Generic)
+
+{-
 class MapElim mode prf a b where
   mapElim :: Proxy mode -> Proxy prf -> Iso a b
   default mapElim :: (Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
   mapElim mode prf = iso
     (to . fst (gMapElim mode prf) . from)
     (to . snd (gMapElim mode prf) . from)
+-}
+
+mapElim :: (Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
+mapElim mode prf = iso
+  (to . fst (gMapElim mode prf) . from)
+  (to . snd (gMapElim mode prf) . from)
 
 class GMapElim mode prf f g where
   gMapElim :: Proxy mode -> Proxy prf -> Iso (f a) (g b)
 
-instance (f ~ g) => GMapElim mode prf (K1 R f) (K1 R g) where
-  gMapElim _ _ = undefined
+instance GMapElim mode prf f g => GMapElim mode prf (M1 i1 c1 f) (M1 i2 c2 g) where
+  gMapElim mode prf = iso
+    (M1 . fst (gMapElim mode prf) . unM1)
+    (M1 . snd (gMapElim mode prf) . unM1)
+
+instance (GMapElim mode prf a1 a2, GMapElim mode prf b1 b2) => GMapElim mode prf (a1 :*: b1) (a2 :*: b2) where
+  gMapElim mode prf = iso
+    (\(a :*: b) -> fst (gMapElim mode prf) a :*: fst (gMapElim mode prf) b)
+    (\(a :*: b) -> snd (gMapElim mode prf) a :*: snd (gMapElim mode prf) b)
+
+instance (GMapElim mode prf a1 a2, GMapElim mode prf b1 b2) => GMapElim mode prf (a1 :+: b1) (a2 :+: b2) where
+  gMapElim mode prf = iso
+    (\a -> case a of
+      L1 a -> L1 (fst (gMapElim mode prf) a)
+      R1 a -> R1 (fst (gMapElim mode prf) a)
+    )
+    (\a -> case a of
+      L1 a -> L1 (snd (gMapElim mode prf) a)
+      R1 a -> R1 (snd (gMapElim mode prf) a)
+    )
+
+instance GMapElim mode prf (K1 R f) (K1 R f) where
+  gMapElim _ _ = iso -- iso id id
+    (\(K1 x) -> (K1 x))
+    (\(K1 x) -> (K1 x))
+
+instance GMapElim mode prf (K1 R (Permission prf' a)) (K1 R a) where
+  gMapElim _ _ = iso
+    (\(K1 (Permission a)) -> (K1 a))
+    (\(K1 a) -> K1 (Permission a))
+
+instance GMapElim mode prf U1 U1 where
+  gMapElim _ _ = iso
+    (\U1 -> U1)
+    (\U1 -> U1)
+
+b :: A
+b = f (Bookkeeper.Permissions.C (Permission 5) 5)
+  where (f, t) = mapElim (Proxy :: Proxy Int) (Proxy :: Proxy Int)
