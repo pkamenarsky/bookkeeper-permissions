@@ -332,3 +332,18 @@ modify prf f = to . f . from
 insert :: (ElimList "insert" prf a) => Set.Set prf -> (ElimListM "insert" prf a) -> a
 insert prf a = to a
   where (_, to) = elimList (Proxy :: Proxy "insert") prf
+
+--------------------------------------------------------------------------------
+
+class MapElim mode prf a b where
+  mapElim :: Proxy mode -> Proxy prf -> Iso a b
+  default mapElim :: (Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
+  mapElim mode prf = iso
+    (to . fst (gMapElim mode prf) . from)
+    (to . snd (gMapElim mode prf) . from)
+
+class GMapElim mode prf f g where
+  gMapElim :: Proxy mode -> Proxy prf -> Iso (f a) (g b)
+
+instance (f ~ g) => GMapElim mode prf (K1 R f) (K1 R g) where
+  gMapElim _ _ = undefined
