@@ -209,13 +209,13 @@ type family ElimTermM prf x where
 
 --------------------------------------------------------------------------------
 
-type family UnpackPermissionM mode prf a where
-  UnpackPermissionM mode prf (Permission '[mode :=> ()] a)           = ElimM mode prf a
-  UnpackPermissionM mode prf (Permission '[mode :=> ModeNotFound] a) = TypeError ('Text "Mode " ':<>: 'ShowType mode ':<>: 'Text " isn't defined for all fields")
-  UnpackPermissionM mode prf (Permission prf' a)                     = Permission prf' a
+type family UnpackPermissionM mode prf a rep where
+  UnpackPermissionM mode prf (Permission '[mode :=> ()] a)           rep = ElimM mode prf a rep
+  UnpackPermissionM mode prf (Permission '[mode :=> ModeNotFound] a) rep = TypeError ('Text "Mode " ':<>: 'ShowType mode ':<>: 'Text " isn't defined for all fields")
+  UnpackPermissionM mode prf (Permission prf' a)                     rep = Permission prf' a
 
-class UnpackPermission mode prf a where
-  unpackPermission :: Proxy mode -> Proxy prf -> Iso a (UnpackPermissionM mode prf a)
+class UnpackPermission mode prf a rep where
+  unpackPermission :: Proxy mode -> Proxy prf -> Proxy rep -> Iso a (UnpackPermissionM mode prf a rep)
 
 instance ( Elim mode prf a
          , UnpackPermissionM mode prf (Permission '[mode :=> ()] a) ~ (ElimM mode prf a)
@@ -225,15 +225,12 @@ instance ( Elim mode prf a
 instance {-# OVERLAPPABLE #-} (UnpackPermissionM mode prf (Permission prf' a) ~ Permission prf' a) => UnpackPermission mode prf (Permission prf' a) where
   unpackPermission _ _ = iso id id
 
-class ElimGeneric mode prf f where
-  elimGeneric :: Proxy mode -> Proxy prf -> Iso (f a) (ElimM mode prf (f a))
+type family ElimM mode prf a rep where
+  ElimM mode prf (Book' kvs) rep = Book' (ElimBookM mode prf kvs rep)
+  ElimM mode prf x           rep = rep
 
-type family ElimM mode prf a where
-  ElimM mode prf (Book' kvs) = Book' (ElimBookM mode prf kvs)
-  ElimM mode prf x           = x
-
-class Elim mode prf a where
-  elim :: Proxy mode -> Proxy prf -> Iso a (ElimM mode prf a)
+class Elim mode prf a rep where
+  elim :: Proxy mode -> Proxy prf -> Proxy rep -> Iso a (ElimM mode prf a rep)
   {-
   default elim :: (Generic a, ElimGeneric mode prf (Rep a)) => Proxy mode -> Proxy prf -> Iso a (ElimM mode prf a)
   elim mode prf = iso
@@ -247,21 +244,21 @@ instance (ElimBook mode prf kvs) => Elim mode prf (Book' kvs) where
 instance {-# OVERLAPPABLE #-} (ElimM mode prf a ~ a) => Elim mode prf a where
   elim _ _ = iso id id
 
-type family ElimBookM mode prf a where
-  ElimBookM mode prf '[] = '[]
-  ElimBookM mode prf ((k :=> Permission prf' v) ': m) = (k :=> UnpackPermissionM mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) ': ElimBookM mode prf m
-  ElimBookM mode prf ((k :=> v) ': m) = (k :=> ElimM mode prf v) ': ElimBookM mode prf m
+type family ElimBookM mode prf a rep where
+  ElimBookM mode prf '[] rep = '[]
+  ElimBookM mode prf ((k :=> Permission prf' v) ': m) rep = (k :=> UnpackPermissionM mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v) rep) ': ElimBookM mode prf m rep
+  ElimBookM mode prf ((k :=> v) ': m) rep = (k :=> ElimM mode prf v rep) ': ElimBookM mode prf m rep
 
-class ElimBook mode prf a where
-  elimBook :: Proxy mode -> Proxy prf -> Iso (Book' a) (Book' (ElimBookM mode prf a))
+class ElimBook mode prf a rep where
+  elimBook :: Proxy mode -> Proxy prf -> Proxy rep -> Iso (Book' a) (Book' (ElimBookM mode prf a rep))
 
-instance (ElimBookM mode prf '[] ~ '[]) => ElimBook mode prf '[] where
+instance (ElimBookM mode prf '[] rep ~ '[]) => ElimBook mode prf '[] rep where
   elimBook _ _ = iso id id
 
 instance {-# OVERLAPPABLE #-}
-    ( UnpackPermission mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)
-    , ElimBook mode prf m
-    ) => ElimBook mode prf ((k :=> Permission prf' v) ': m) where
+    ( UnpackPermission mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v rep)
+    , ElimBook mode prf m rep
+    ) => ElimBook mode prf ((k :=> Permission prf' v) ': m) rep where
   elimBook mode prf = iso
     (\(Book (Map.Ext k v m)) -> Book (Map.Ext k (fst (unpackPermission mode prf) (cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v))) (getBook (fst (elimBook mode prf) (Book m)))))
     (\(Book (Map.Ext k v m)) -> Book (Map.Ext k (cnvPermission (snd (unpackPermission mode prf) v :: Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) (getBook (snd (elimBook mode prf) (Book m)))))
