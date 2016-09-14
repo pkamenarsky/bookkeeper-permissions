@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -136,6 +137,10 @@ module Bookkeeper.Permissions
 -- * Unsafe
   , unsafePermission
   , unsafeUnpackPermission
+
+-- * Type families & classes
+  , ElimListM
+  , ElimList
   ) where
 
 import Prelude hiding (and)
@@ -220,12 +225,21 @@ instance ( Elim mode prf a
 instance {-# OVERLAPPABLE #-} (UnpackPermissionM mode prf (Permission prf' a) ~ Permission prf' a) => UnpackPermission mode prf (Permission prf' a) where
   unpackPermission _ _ = iso id id
 
+class ElimGeneric mode prf f where
+  elimGeneric :: Proxy mode -> Proxy prf -> Iso (f a) (ElimM mode prf (f a))
+
 type family ElimM mode prf a where
   ElimM mode prf (Book' kvs) = Book' (ElimBookM mode prf kvs)
   ElimM mode prf x           = x
 
 class Elim mode prf a where
   elim :: Proxy mode -> Proxy prf -> Iso a (ElimM mode prf a)
+  {-
+  default elim :: (Generic a, ElimGeneric mode prf (Rep a)) => Proxy mode -> Proxy prf -> Iso a (ElimM mode prf a)
+  elim mode prf = iso
+    undefined
+    undefined
+  -}
 
 instance (ElimBook mode prf kvs) => Elim mode prf (Book' kvs) where
   elim mode prf = iso (\a -> (fst (elimBook mode prf) a)) (\a -> (snd (elimBook mode prf) a))
