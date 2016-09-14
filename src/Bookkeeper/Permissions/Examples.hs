@@ -11,6 +11,8 @@ import Bookkeeper
 import Bookkeeper.Internal
 import Bookkeeper.Permissions as P
 
+import Data.Proxy
+
 import qualified Data.Type.Map as Map
 import qualified Data.Type.Set as Set
 
@@ -42,7 +44,6 @@ type Person = Book
        ] String
   ]
 
-{-
 person :: Person
 person = emptyBook
   & #name =: unsafePermission "person"
@@ -50,6 +51,7 @@ person = emptyBook
   & #bff  =: unsafePermission (emptyBook & #forever =: unsafePermission True)
   & #key  =: unsafePermission "key"
 
+{-
 test_insert :: Person
 test_insert = insert (Auth `Set.Ext` Set.Empty) $ emptyBook
   & #name =: "person"
@@ -70,3 +72,26 @@ test_modify :: Person
 test_modify = P.modify (Auth `Set.Ext` Set.Empty) f person
   where f p = p & #age =: 6
 -}
+
+type Person1 = Book
+ '[ "name" :=> Permission
+      '[ "modify" :=> (Admin :&: Auth)
+       , "insert" :=> Auth
+       ] String
+  , "age"  :=> Permission
+      '[ "modify" :=> Admin
+       , "insert" :=> Auth
+       ] Int
+  ]
+
+type Person2 = Book
+ '[ "name" :=> Permission
+      '[ "modify" :=> Auth
+       ] String
+  , "age"  :=> Int
+  ]
+
+d :: Person2
+d = f ((emptyBook & #name =: (unsafePermission "name") & #age =: (unsafePermission (666 :: Int))))
+  where
+    (f, t) = mapElim (Proxy :: Proxy "modify") (Proxy :: Proxy Admin) :: Iso Person1 Person2

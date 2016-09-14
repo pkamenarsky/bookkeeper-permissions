@@ -141,6 +141,9 @@ module Bookkeeper.Permissions
 -- * Type families & classes
   , ElimListM
   , ElimList
+
+  , mapElim
+  , Iso
   ) where
 
 import Prelude hiding (and)
@@ -356,6 +359,10 @@ class MapElim mode prf a b where
     (to . snd (gMapElim mode prf) . from)
 -}
 
+type family MapRep a where
+  MapRep (M1 a b c d) = M1 a b c (MapRep d)
+  MapRep (f U1) = (f U1)
+
 mapElim :: (Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
 mapElim mode prf = iso
   (to . fst (gMapElim mode prf) . from)
@@ -409,6 +416,20 @@ instance GMapElim mode prf U1 U1 where
   gMapElim _ _ = iso
     (\U1 -> U1)
     (\U1 -> U1)
+
+instance Generic (Book' '[]) where
+  type Rep (Book' '[]) = U1
+  from _ = U1
+  to _   = Book (Map.Empty)
+
+instance Generic (Book' (k :=> v ': m)) where
+  -- type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: Rep (Book' m)
+  -- from (Book (Map.Ext k v m)) = M1 (K1 v) :*: from (Book m)
+  -- to (M1 (K1 v) :*: m) = Book (Map.Ext (Map.Var :: Map.Var k) v (getBook (to m)))
+
+  type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 (Book' m))
+  from (Book (Map.Ext k v m)) = M1 (K1 v) :*: (M1 (K1 (Book m)))
+  to (M1 (K1 v) :*: (M1 (K1 (Book m)))) = Book (Map.Ext (Map.Var :: Map.Var k) v m)
 
 {-
 b :: (Permission '[ "read" :=> Double ] String, String)
