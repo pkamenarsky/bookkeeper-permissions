@@ -343,7 +343,7 @@ insert prf a = to a
 
 data A = A Int Int deriving (Show, Generic)
 data B = B Int Int deriving (Show, Generic)
-data C = C (Permission '[ "read" :=> (String :&: Double) ] Int) Int deriving (Show, Generic)
+data C = C (Permission '[ "read" :=> (String :|: Double) ] Int) Int deriving (Show, Generic)
 data D = D (Permission '[ "read" :=> Double ] Int) Int deriving (Show, Generic)
 
 data E = E A deriving (Show, Generic)
@@ -360,15 +360,22 @@ class MapElim mode prf a b where
 -}
 
 type family MapRep a where
-  MapRep (M1 i c f p) = M1 i c (MapRep (f p))
-  MapRep (K1 i c p) = K1 i (MapRep c p)
-  MapRep (K1 i c (Permission prf p)) = K1 i (MapRep c p)
-  MapRep ((f :*: g) p) = (MapRep (f p) :*: MapRep (f p))
-  MapRep ((f :+: g) p) = (MapRep (f p) :+: MapRep (g p))
-  MapRep (U1 p) = U1
-  MapRep (f x) = x
+  -- MapRep (M1 i c f p) = M1 i c (MapRep (f p))
+  -- MapRep (K1 i c p) = K1 i (MapRep c p)
+  -- MapRep (K1 i c (Permission prf p)) = K1 i (MapRep c p)
+  -- MapRep ((f :*: g) p) = (MapRep (f p) :*: MapRep (f p))
+  -- MapRep ((f :+: g) p) = (MapRep (f p) :+: MapRep (g p))
+  -- MapRep (U1 p) = U1
+  -- MapRep (f x) = x
+  MapRep (M1 i c f) = M1 i c (MapRep f)
+  MapRep (K1 i (Permission prf c)) = K1 i c
+  MapRep (K1 i c) = K1 i c
+  MapRep (f :*: g) = (MapRep f :*: MapRep g)
+  MapRep (f :+: g) = (MapRep f :+: MapRep g)
+  MapRep U1 = U1
+  MapRep x = x
 
-mapElim :: ({- MapRep (Rep a ()) ~ (Rep b), -} Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
+mapElim :: (MapRep (Rep a) ~ (Rep b), Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
 mapElim mode prf = iso
   (to . fst (gMapElim mode prf) . from)
   (to . snd (gMapElim mode prf) . from)
@@ -402,7 +409,7 @@ instance GMapElim mode prf (K1 R f) (K1 R f) where
     (\(K1 x) -> (K1 x))
     (\(K1 x) -> (K1 x))
 
-instance {-# OVERLAPPABLE #-} (Generic f, Generic g, GMapElim mode prf (Rep f) (Rep g)) => GMapElim mode prf (K1 R f) (K1 R g) where
+instance {-# OVERLAPPABLE #-} ({-MapRep (Rep f) ~ (Rep g), -} Generic f, Generic g, GMapElim mode prf (Rep f) (Rep g)) => GMapElim mode prf (K1 R f) (K1 R g) where
   gMapElim mode prf = iso
     (\(K1 x) -> (K1 (to (fst (gMapElim mode prf) (from x)))))
     (\(K1 x) -> (K1 (to (snd (gMapElim mode prf) (from x)))))
@@ -442,6 +449,22 @@ b = f (Permission "asd" :: Permission '[ "read" :=> (String :&: Double) ] String
   where (f, t) = mapElim (Proxy :: Proxy "read") (Proxy :: Proxy String)
 -}
 
-b :: G
+{- 
+b :: E
 b = f (F (C (Permission 666) 777))
   where (f, t) = mapElim (Proxy :: Proxy "read") (Proxy :: Proxy String)
+
+D1
+    ('MetaData "A" "Bookkeeper.Permissions" "main" 'False)
+    (C1
+       ('MetaCons "A" 'PrefixI 'False)
+       (S1
+          ('MetaSel
+             'Nothing 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy)
+          (Rec0 Int)
+        :*: S1
+              ('MetaSel
+                 'Nothing 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy)
+              (Rec0 Int)))
+    Double
+-}
