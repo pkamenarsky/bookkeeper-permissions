@@ -149,7 +149,7 @@ import Data.Typeable
 
 import GHC.TypeLits
 import GHC.OverloadedLabels
-import GHC.Generics
+import GHC.Generics hiding (C, D)
 
 import Data.Proxy
 
@@ -205,8 +205,9 @@ data ModeNotFound
 
 type family ElimTermM prf x where
   ElimTermM Star x               = ()
-  ElimTermM prf ('Just (op x y)) = ElimTerm1M prf (op (ElimTermM prf  ('Just x)) (ElimTermM prf  ('Just y)))
+  ElimTermM prf ('Just prf)      = ()
   ElimTermM prf ('Just x)        = ElimTerm1M prf x
+  ElimTermM prf ('Just (op x y)) = ElimTerm1M prf (op (ElimTermM prf  ('Just x)) (ElimTermM prf  ('Just y)))
   ElimTermM prf 'Nothing         = ModeNotFound
 
 --------------------------------------------------------------------------------
@@ -339,7 +340,12 @@ insert prf a = to a
 
 data A = A Int Int deriving (Show, Generic)
 data B = B Int Int deriving (Show, Generic)
-data C = C (Permission String Int) Int deriving (Show, Generic)
+data C = C (Permission '[ "read" :=> (String :&: Double) ] Int) Int deriving (Show, Generic)
+data D = D (Permission '[ "read" :=> Double ] Int) Int deriving (Show, Generic)
+
+data E = E A deriving (Show, Generic)
+data F = F C deriving (Show, Generic)
+data G = G D deriving (Show, Generic)
 
 {-
 class MapElim mode prf a b where
@@ -384,16 +390,32 @@ instance GMapElim mode prf (K1 R f) (K1 R f) where
     (\(K1 x) -> (K1 x))
     (\(K1 x) -> (K1 x))
 
-instance GMapElim mode prf (K1 R (Permission prf' a)) (K1 R a) where
+instance {-# OVERLAPPABLE #-} (Generic f, Generic g, GMapElim mode prf (Rep f) (Rep g)) => GMapElim mode prf (K1 R f) (K1 R g) where
+  gMapElim mode prf = iso
+    (\(K1 x) -> (K1 (to (fst (gMapElim mode prf) (from x)))))
+    (\(K1 x) -> (K1 (to (snd (gMapElim mode prf) (from x)))))
+
+instance ((ElimTermM prf (Map.Lookup prf' mode)) ~ ()) => GMapElim mode prf (K1 R (Permission prf' a)) (K1 R a) where
   gMapElim _ _ = iso
     (\(K1 (Permission a)) -> (K1 a))
     (\(K1 a) -> K1 (Permission a))
+
+instance ((ElimTermM prf (Map.Lookup prf' mode)) ~ term) => GMapElim mode prf (K1 R (Permission prf' a)) (K1 R (Permission '[ mode :=> term ] a)) where
+  gMapElim _ _ = iso
+    (\(K1 (Permission a)) -> K1 (Permission a))
+    (\(K1 (Permission a)) -> K1 (Permission a))
 
 instance GMapElim mode prf U1 U1 where
   gMapElim _ _ = iso
     (\U1 -> U1)
     (\U1 -> U1)
 
-b :: A
-b = f (Bookkeeper.Permissions.C (Permission 5) 5)
-  where (f, t) = mapElim (Proxy :: Proxy Int) (Proxy :: Proxy Int)
+{-
+b :: (Permission '[ "read" :=> Double ] String, String)
+b = f (Permission "asd" :: Permission '[ "read" :=> (String :&: Double) ] String, "asd")
+  where (f, t) = mapElim (Proxy :: Proxy "read") (Proxy :: Proxy String)
+-}
+
+b :: G
+b = f (F (C (Permission 666) 777))
+  where (f, t) = mapElim (Proxy :: Proxy "read") (Proxy :: Proxy String)

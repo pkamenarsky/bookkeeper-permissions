@@ -42,6 +42,7 @@ type Person = Book
        ] String
   ]
 
+{-
 person :: Person
 person = emptyBook
   & #name =: unsafePermission "person"
@@ -68,3 +69,4 @@ test_insert' = insertKey $ insert (Auth `Set.Ext` Set.Empty) $ emptyBook
 test_modify :: Person
 test_modify = P.modify (Auth `Set.Ext` Set.Empty) f person
   where f p = p & #age =: 6
+-}
