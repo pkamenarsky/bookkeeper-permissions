@@ -369,6 +369,7 @@ type family MapRep a where
   -- MapRep (f x) = x
   MapRep (M1 i c f) = M1 i c (MapRep f)
   MapRep (K1 i (Permission prf c)) = K1 i c
+  -- MapRep (K1 i c) = MapRep (Rep c)
   MapRep (K1 i c) = K1 i c
   MapRep (f :*: g) = (MapRep f :*: MapRep g)
   MapRep (f :+: g) = (MapRep f :+: MapRep g)
@@ -434,14 +435,14 @@ instance Generic (Book' '[]) where
   from _ = U1
   to _   = Book (Map.Empty)
 
-instance Generic (Book' (k :=> v ': m)) where
-  -- type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: Rep (Book' m)
-  -- from (Book (Map.Ext k v m)) = M1 (K1 v) :*: from (Book m)
-  -- to (M1 (K1 v) :*: m) = Book (Map.Ext (Map.Var :: Map.Var k) v (getBook (to m)))
+instance (Generic (Book' m)) => Generic (Book' (k :=> v ': m)) where
+  type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: Rep (Book' m)
+  from (Book (Map.Ext k v m)) = M1 (K1 v) :*: from (Book m)
+  to (M1 (K1 v) :*: m) = Book (Map.Ext (Map.Var :: Map.Var k) v (getBook (to m)))
 
-  type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 (Book' m))
-  from (Book (Map.Ext k v m)) = M1 (K1 v) :*: (M1 (K1 (Book m)))
-  to (M1 (K1 v) :*: (M1 (K1 (Book m)))) = Book (Map.Ext (Map.Var :: Map.Var k) v m)
+  -- type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 (Book' m))
+  -- from (Book (Map.Ext k v m)) = M1 (K1 v) :*: (M1 (K1 (Book m)))
+  -- to (M1 (K1 v) :*: (M1 (K1 (Book m)))) = Book (Map.Ext (Map.Var :: Map.Var k) v m)
 
 {-
 b :: (Permission '[ "read" :=> Double ] String, String)
