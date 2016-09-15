@@ -96,7 +96,7 @@ type Person3 = Book
   , "age"  :=> Int
   ]
 
-d :: Person3
-d = f ((emptyBook & #name =: (unsafePermission "name") & #age =: (unsafePermission (666 :: Int))) :: Person1)
-  where
-    (f, t) = mapElim (Proxy :: Proxy "modify") (Proxy :: Proxy Admin)
+-- d :: Person3
+-- d = f ((emptyBook & #name =: (unsafePermission "name") & #age =: (unsafePermission (666 :: Int))) :: Person1)
+--   where
+--     (f, t) = mapElim (Proxy :: Proxy "modify") (Proxy :: Proxy Admin)

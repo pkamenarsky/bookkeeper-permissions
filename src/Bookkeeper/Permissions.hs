@@ -377,10 +377,10 @@ instance (GMapElim2 mode prf f, MapRep (M1 i c f) ~ (M1 i c (MapRep f))) => GMap
     (M1 . fst (gMapElim2 mode prf) . unM1)
     (M1 . snd (gMapElim2 mode prf) . unM1)
 
-mapElim :: ({- MapRep (Rep a) ~ (Rep b), -} Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
+mapElim :: (Generic a, Generic b, GMapElim2 mode prf (Rep a), Rep b ~ (MapRep (Rep a))) => Proxy mode -> Proxy prf -> Iso a b
 mapElim mode prf = iso
-  (to . fst (gMapElim mode prf) . from)
-  (to . snd (gMapElim mode prf) . from)
+  (to . fst (gMapElim2 mode prf) . from)
+  (to . snd (gMapElim2 mode prf) . from)
 
 class GMapElim mode prf f g | mode prf f -> g where
   gMapElim :: Proxy mode -> Proxy prf -> Iso (f a) (g b)
