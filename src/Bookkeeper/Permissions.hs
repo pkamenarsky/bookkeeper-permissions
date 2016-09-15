@@ -360,13 +360,6 @@ class MapElim mode prf a b where
 -}
 
 type family MapRep a where
-  -- MapRep (M1 i c f p) = M1 i c (MapRep (f p))
-  -- MapRep (K1 i c p) = K1 i (MapRep c p)
-  -- MapRep (K1 i c (Permission prf p)) = K1 i (MapRep c p)
-  -- MapRep ((f :*: g) p) = (MapRep (f p) :*: MapRep (f p))
-  -- MapRep ((f :+: g) p) = (MapRep (f p) :+: MapRep (g p))
-  -- MapRep (U1 p) = U1
-  -- MapRep (f x) = x
   MapRep (M1 i c f) = M1 i c (MapRep f)
   MapRep (K1 i (Permission prf c)) = K1 i c
   -- MapRep (K1 i c) = MapRep (Rep c)
@@ -376,15 +369,23 @@ type family MapRep a where
   MapRep U1 = U1
   MapRep x = x
 
-mapElim :: (MapRep (Rep a) ~ (Rep b), Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
+class GMapElim2 mode prf a where
+  gMapElim2 :: Proxy mode -> Proxy prf -> Iso (a p) (MapRep a p)
+
+instance (GMapElim2 mode prf f, MapRep (M1 i c f) ~ (M1 i c (MapRep f))) => GMapElim2 mode prf (M1 i c f) where
+  gMapElim2 mode prf = iso
+    (M1 . fst (gMapElim2 mode prf) . unM1)
+    (M1 . snd (gMapElim2 mode prf) . unM1)
+
+mapElim :: ({- MapRep (Rep a) ~ (Rep b), -} Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
 mapElim mode prf = iso
   (to . fst (gMapElim mode prf) . from)
   (to . snd (gMapElim mode prf) . from)
 
-class GMapElim mode prf f g where
+class GMapElim mode prf f g | mode prf f -> g where
   gMapElim :: Proxy mode -> Proxy prf -> Iso (f a) (g b)
 
-instance GMapElim mode prf f g => GMapElim mode prf (M1 i1 c1 f) (M1 i2 c2 g) where
+instance GMapElim mode prf f g => GMapElim mode prf (M1 i c f) (M1 i c g) where
   gMapElim mode prf = iso
     (M1 . fst (gMapElim mode prf) . unM1)
     (M1 . snd (gMapElim mode prf) . unM1)
@@ -405,10 +406,12 @@ instance (GMapElim mode prf a1 a2, GMapElim mode prf b1 b2) => GMapElim mode prf
       R1 a -> R1 (snd (gMapElim mode prf) a)
     )
 
+{-
 instance GMapElim mode prf (K1 R f) (K1 R f) where
   gMapElim _ _ = iso -- id id
     (\(K1 x) -> (K1 x))
     (\(K1 x) -> (K1 x))
+-}
 
 instance {-# OVERLAPPABLE #-} ({-MapRep (Rep f) ~ (Rep g), -} Generic f, Generic g, GMapElim mode prf (Rep f) (Rep g)) => GMapElim mode prf (K1 R f) (K1 R g) where
   gMapElim mode prf = iso
@@ -420,10 +423,12 @@ instance ((ElimTermM prf (Map.Lookup prf' mode)) ~ ()) => GMapElim mode prf (K1 
     (\(K1 (Permission a)) -> (K1 a))
     (\(K1 a) -> K1 (Permission a))
 
+{-
 instance ((ElimTermM prf (Map.Lookup prf' mode)) ~ term) => GMapElim mode prf (K1 R (Permission prf' a)) (K1 R (Permission '[ mode :=> term ] a)) where
   gMapElim _ _ = iso
     (\(K1 (Permission a)) -> K1 (Permission a))
     (\(K1 (Permission a)) -> K1 (Permission a))
+-}
 
 instance GMapElim mode prf U1 U1 where
   gMapElim _ _ = iso
