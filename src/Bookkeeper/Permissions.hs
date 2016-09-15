@@ -545,3 +545,8 @@ class MapADT mode prf f g where
 instance (ElimList mode prf c, ElimListM mode prf c ~ d) => MapADT mode prf (D1 m (C1 m2 (S1 m3 (K1 m4 c)))) (D1 m (C1 m2 (S1 m3 (K1 m4 d)))) where
   mapADT mode prf (M1 (M1 (M1 (K1 c)))) = (M1 (M1 (M1 (K1 (fst (elimList mode prf) c)))))
 
+instance ( ElimList mode prf c, ElimListM mode prf c ~ d
+         , ElimList mode prf c1, ElimListM mode prf c1 ~ d1
+         ) => MapADT mode prf (D1 m (C1 m2 (S1 m3 (K1 m4 c) :+: (C1 n2 (S1 n3 (K1 n4 c1)))))) (D1 m (C1 m2 (S1 m3 (K1 m4 d) :+: (C1 n2 (S1 n3 (K1 n4 d1)))))) where
+  mapADT mode prf (M1 (M1 (L1 (M1 (K1 c))))) = (M1 (M1 (L1 (M1 (K1 (fst (elimList mode prf) c))))))
+  mapADT mode prf (M1 (M1 (R1 (M1 (M1 (K1 c)))))) = (M1 (M1 (R1 (M1 (M1 (K1 (fst (elimList mode prf) c)))))))

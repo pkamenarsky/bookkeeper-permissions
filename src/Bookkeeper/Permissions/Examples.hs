@@ -102,9 +102,9 @@ d = f ((emptyBook & #name =: (unsafePermission "name") & #age =: (unsafePermissi
     (f, t) = mapElim (Proxy :: Proxy "modify") (Proxy :: Proxy Admin)
 -}
 
-data A1 a = A1 a deriving (Show, Generic)
+data A1 a b = A1 a | A2 b deriving (Show, Generic)
 
-type A1' = A1 Person
+type A1' = A1 Person Person
 
-d :: _
-d = mapADT' (Proxy :: Proxy "modify") (Admin `Set.Ext` (Auth `Set.Ext` Set.Empty)) (A1 person)
+-- d :: _
+-- d = mapADT' (Proxy :: Proxy "modify") (Admin `Set.Ext` (Auth `Set.Ext` Set.Empty)) (A1 person)
