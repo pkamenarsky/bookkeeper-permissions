@@ -75,13 +75,9 @@ test_modify = P.modify (Auth `Set.Ext` Set.Empty) f person
 
 type Person1 = Book
  '[ "name" :=> Permission
-      '[ "modify" :=> (Admin :|: Auth)
-       , "insert" :=> Auth
-       ] String
+      Admin String
   , "age"  :=> Permission
-      '[ "modify" :=> Admin
-       , "insert" :=> Auth
-       ] Int
+      Admin Int
   ]
 
 type Person2 = Book
@@ -96,7 +92,7 @@ type Person3 = Book
   , "age"  :=> Int
   ]
 
--- d :: Person3
--- d = f ((emptyBook & #name =: (unsafePermission "name") & #age =: (unsafePermission (666 :: Int))) :: Person1)
---   where
---     (f, t) = mapElim (Proxy :: Proxy "modify") (Proxy :: Proxy Admin)
+d :: Person3
+d = f ((emptyBook & #name =: (unsafePermission "name") & #age =: (unsafePermission (666 :: Int))) :: Person1)
+  where
+    (f, t) = mapElim (Proxy :: Proxy "modify") (Proxy :: Proxy Admin)
