@@ -550,3 +550,10 @@ instance ( ElimList mode prf c, ElimListM mode prf c ~ d
          ) => MapADT mode prf (D1 m (C1 m2 (S1 m3 (K1 m4 c)) :+: C1 n2 (S1 n3 (K1 n4 c1)))) (D1 m (C1 m2 (S1 m3 (K1 m4 d)) :+: C1 n2 (S1 n3 (K1 n4 d1)))) where
   mapADT mode prf (M1 (L1 (M1 (M1 (K1 c))))) = (M1 (L1 (M1 (M1 (K1 (fst (elimList mode prf) c))))))
   mapADT mode prf (M1 (R1 (M1 (M1 (K1 c))))) = (M1 (R1 (M1 (M1 (K1 (fst (elimList mode prf) c))))))
+
+instance ( ElimList mode prf c, ElimListM mode prf c ~ d
+         , ElimList mode prf c1, ElimListM mode prf c1 ~ d1
+         , ElimList mode prf c2, ElimListM mode prf c1 ~ d2
+         ) => MapADT mode prf (D1 m (C1 m2 (S1 m3 (K1 m4 c)) :+: C1 n2 (S1 n3 (K1 n4 c1)) :+: C1 o2 (S1 o3 (K1 o4 c2)))) (D1 m (C1 m2 (S1 m3 (K1 m4 d)) :+: C1 n2 (S1 n3 (K1 n4 d1)) :+: C1 o2 (S1 o3 (K1 o4 d2)))) where
+  mapADT mode prf = undefined -- (M1 (L1 (M1 (M1 (K1 c))))) = (M1 (L1 (M1 (M1 (K1 (fst (elimList mode prf) c))))))
+  mapADT mode prf = undefined -- (M1 (R1 (M1 (M1 (K1 c))))) = (M1 (R1 (M1 (M1 (K1 (fst (elimList mode prf) c))))))
