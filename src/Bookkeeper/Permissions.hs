@@ -288,6 +288,28 @@ instance (Elim mode x a, ElimList mode xs (ElimM mode x a)) => ElimList mode (x 
 
 -- ADTs ------------------------------------------------------------------------
 
+instance Generic (Book' '[]) where
+  type Rep (Book' '[]) = U1
+  from _ = U1
+  to _   = Book (Map.Empty)
+
+instance (Generic (Book' m)) => Generic (Book' (k :=> v ': m)) where
+  type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: Rep (Book' m)
+  from (Book (Map.Ext k v m)) = M1 (K1 v) :*: from (Book m)
+  to (M1 (K1 v) :*: m) = Book (Map.Ext (Map.Var :: Map.Var k) v (getBook (to m)))
+
+type family Merge a b where
+  Merge (Book' xs) (Book' ys) = Book' (xs Set.:++ ys)
+  Merge (Book' xs) () = Book' xs
+  Merge x y = (x, y)
+
+type family FromRepBook a where
+  FromRepBook (S1 (MetaSel (Just k) x y z) (K1 i d)) = Book' '[ k :=> d]
+  FromRepBook (M1 i c f) = (FromRepBook f)
+  FromRepBook (K1 i c)   = c
+  FromRepBook (f :*: g)  = (FromRepBook f `Merge` FromRepBook g)
+  FromRepBook U1         = ()
+
 type family MapADTM mode prf a where
   MapADTM mode prf (a b c d e) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d) (MapADTM mode prf e))
   MapADTM mode prf (a b c d) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d))
