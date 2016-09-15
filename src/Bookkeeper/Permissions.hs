@@ -141,9 +141,6 @@ module Bookkeeper.Permissions
 -- * Type families & classes
   , ElimListM
   , ElimList
-
-  , mapElim
-  , Iso
   , mapADT'
   ) where
 
@@ -297,6 +294,37 @@ instance (Elim mode x a, ElimList mode xs (ElimM mode x a)) => ElimList mode (x 
     ((fst (elimList mode xs)) . (fst (elim mode (Proxy :: Proxy x))))
     ((snd (elim mode (Proxy :: Proxy x))) . (snd (elimList mode xs)))
 
+-- ADTs ------------------------------------------------------------------------
+
+type family MapADTM mode prf a where
+  MapADTM mode prf (a b c d e) = (a (ElimListM mode prf b) (ElimListM mode prf c) (ElimListM mode prf d) (ElimListM mode prf e))
+  MapADTM mode prf (a b c d) = (a (ElimListM mode prf b) (ElimListM mode prf c) (ElimListM mode prf d))
+  MapADTM mode prf (a b c) = (a (ElimListM mode prf b) (ElimListM mode prf c))
+  MapADTM mode prf (a b) = (a (ElimListM mode prf b))
+  MapADTM mode prf a = ElimListM mode prf a
+
+mapADT' :: (Generic a, Generic (MapADTM mode prf a), MapADT mode prf (Rep a) (Rep (MapADTM mode prf a))) => Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
+mapADT' mode prf = to . mapADT mode prf . from
+
+class MapADT mode prf f g where
+  mapADT :: Proxy mode -> Set.Set prf -> f a -> g a
+
+instance MapADT mode prf U1 U1 where
+  mapADT mode prf = id
+
+instance (MapADT mode prf f g) => MapADT mode prf (M1 i c f) (M1 i c g) where
+  mapADT mode prf (M1 c) = M1 (mapADT mode prf c)
+
+instance (ElimList mode prf f, ElimListM mode prf f ~ g) => MapADT mode prf (K1 c f) (K1 c g) where
+  mapADT mode prf (K1 c) = K1 (fst (elimList mode prf) c)
+
+instance (MapADT mode prf f f2, MapADT mode prf g g2) => MapADT mode prf (f :*: g) (f2 :*: g2) where
+  mapADT mode prf (f :*: g) = mapADT mode prf f :*: mapADT mode prf g
+
+instance (MapADT mode prf f f2, MapADT mode prf g g2) => MapADT mode prf (f :+: g) (f2 :+: g2) where
+  mapADT mode prf (L1 f) = L1 (mapADT mode prf f)
+  mapADT mode prf (R1 f) = R1 (mapADT mode prf f)
+
 --------------------------------------------------------------------------------
 
 data Mode (m :: Symbol) = Mode
@@ -339,221 +367,3 @@ modify prf f = to . f . from
 insert :: (ElimList "insert" prf a) => Set.Set prf -> (ElimListM "insert" prf a) -> a
 insert prf a = to a
   where (_, to) = elimList (Proxy :: Proxy "insert") prf
-
---------------------------------------------------------------------------------
-
-data A = A Int Int deriving (Show, Generic)
-data B = B Int Int deriving (Show, Generic)
-data C = C (Permission '[ "read" :=> (String :|: Double) ] Int) Int deriving (Show, Generic)
-data D = D (Permission '[ "read" :=> Double ] Int) Int deriving (Show, Generic)
-
-data E = E A deriving (Show, Generic)
-data F = F C deriving (Show, Generic)
-data G = G D deriving (Show, Generic)
-
-data DT = X A | Y | Z deriving (Show, Generic)
-
-data PM a b = PM a b deriving (Show, Generic)
-
-{-
-class MapElim mode prf a b where
-  mapElim :: Proxy mode -> Proxy prf -> Iso a b
-  default mapElim :: (Generic a, Generic b, GMapElim mode prf (Rep a) (Rep b)) => Proxy mode -> Proxy prf -> Iso a b
-  mapElim mode prf = iso
-    (to . fst (gMapElim mode prf) . from)
-    (to . snd (gMapElim mode prf) . from)
--}
-
-type family MapRep a where
-  MapRep (M1 i c f) = M1 i c (MapRep f)
-  MapRep (K1 i (Permission prf c)) = K1 i c
-  -- MapRep (K1 i c) = MapRep (Rep c)
-  MapRep (K1 i c) = K1 i c
-  MapRep (f :*: g) = (MapRep f :*: MapRep g)
-  MapRep (f :+: g) = (MapRep f :+: MapRep g)
-  MapRep U1 = U1
-  MapRep x = x
-
-type family Merge a b where
-  Merge (Book' xs) (Book' ys) = Book' (xs Set.:++ ys)
-  Merge x y = (x, y)
-
-type family FromRep a where
-  FromRep (C1 (MetaCons cn x y) (s1 :*: s2)) = PM (FromRep s1) (FromRep s2)
-  FromRep (M1 i c f) = (FromRep f)
-  FromRep (K1 i c) = c
-  FromRep (f :*: g) = (FromRep f, FromRep g)
-  FromRep (f :+: g) = Either (FromRep f) (FromRep g)
-  FromRep U1 = ()
-
--- type family FromRepBook a where
---   FromRepBook (M1 i c f) = (FromRepBook f)
---   FromRepBook (K1 i c) = c
---   FromRepBook (f :*: g) = (FromRepBook f ': FromRepBook g)
---   FromRepBook (f :+: g) = Either (FromRepBook f) (FromRepBook g)
---   FromRepBook U1 = '[]
-
-class GMapElim2 mode prf a where
-  gMapElim2 :: Proxy mode -> Proxy prf -> Iso (a p) (MapRep a p)
-
-instance (GMapElim2 mode prf f {-, MapRep (M1 i c f) ~ (M1 i c (MapRep f)) -}) => GMapElim2 mode prf (M1 i c f) where
-  gMapElim2 mode prf = iso
-    (M1 . fst (gMapElim2 mode prf) . unM1)
-    (M1 . snd (gMapElim2 mode prf) . unM1)
-
-instance (MapRep (K1 i (Permission prf c)) ~ (K1 i c)) => GMapElim2 mode prf (K1 i (Permission prf c)) where
-  gMapElim2 mode prf = iso
-    (\(K1 (Permission a)) -> (K1 a))
-    (\(K1 a) -> K1 (Permission a))
-
--- instance (MapRep (K1 i c) ~ (K1 i c)) => GMapElim2 mode prf (K1 i c) where
---   gMapElim2 mode prf = iso id id
-
-instance (GMapElim2 mode prf a1, GMapElim2 mode prf b1) => GMapElim2 mode prf (a1 :*: b1) where
-  gMapElim2 mode prf = iso
-    (\(a :*: b) -> fst (gMapElim2 mode prf) a :*: fst (gMapElim2 mode prf) b)
-    (\(a :*: b) -> snd (gMapElim2 mode prf) a :*: snd (gMapElim2 mode prf) b)
-
-instance (GMapElim2 mode prf a1, GMapElim2 mode prf b1) => GMapElim2 mode prf (a1 :+: b1) where
-  gMapElim2 mode prf = iso
-    (\a -> case a of
-      L1 a -> L1 (fst (gMapElim2 mode prf) a)
-      R1 a -> R1 (fst (gMapElim2 mode prf) a)
-    )
-    (\a -> case a of
-      L1 a -> L1 (snd (gMapElim2 mode prf) a)
-      R1 a -> R1 (snd (gMapElim2 mode prf) a)
-    )
-
-instance GMapElim2 mode prf U1 where
-  gMapElim2 _ _ = iso id id
-
-mapElim :: (Generic a, Generic b, GMapElim2 mode prf (Rep a), Rep b ~ (MapRep (Rep a))) => Proxy mode -> Proxy prf -> Iso a b
-mapElim mode prf = iso
-  (to . fst (gMapElim2 mode prf) . from)
-  (to . snd (gMapElim2 mode prf) . from)
-
---------------------------------------------------------------------------------
-
-class GMapElim mode prf f g | mode prf f -> g where
-  gMapElim :: Proxy mode -> Proxy prf -> Iso (f a) (g b)
-
-instance GMapElim mode prf f g => GMapElim mode prf (M1 i c f) (M1 i c g) where
-  gMapElim mode prf = iso
-    (M1 . fst (gMapElim mode prf) . unM1)
-    (M1 . snd (gMapElim mode prf) . unM1)
-
-instance (GMapElim mode prf a1 a2, GMapElim mode prf b1 b2) => GMapElim mode prf (a1 :*: b1) (a2 :*: b2) where
-  gMapElim mode prf = iso
-    (\(a :*: b) -> fst (gMapElim mode prf) a :*: fst (gMapElim mode prf) b)
-    (\(a :*: b) -> snd (gMapElim mode prf) a :*: snd (gMapElim mode prf) b)
-
-instance (GMapElim mode prf a1 a2, GMapElim mode prf b1 b2) => GMapElim mode prf (a1 :+: b1) (a2 :+: b2) where
-  gMapElim mode prf = iso
-    (\a -> case a of
-      L1 a -> L1 (fst (gMapElim mode prf) a)
-      R1 a -> R1 (fst (gMapElim mode prf) a)
-    )
-    (\a -> case a of
-      L1 a -> L1 (snd (gMapElim mode prf) a)
-      R1 a -> R1 (snd (gMapElim mode prf) a)
-    )
-
-{-
-instance GMapElim mode prf (K1 R f) (K1 R f) where
-  gMapElim _ _ = iso -- id id
-    (\(K1 x) -> (K1 x))
-    (\(K1 x) -> (K1 x))
--}
-
-instance {-# OVERLAPPABLE #-} ({-MapRep (Rep f) ~ (Rep g), -} Generic f, Generic g, GMapElim mode prf (Rep f) (Rep g)) => GMapElim mode prf (K1 R f) (K1 R g) where
-  gMapElim mode prf = iso
-    (\(K1 x) -> (K1 (to (fst (gMapElim mode prf) (from x)))))
-    (\(K1 x) -> (K1 (to (snd (gMapElim mode prf) (from x)))))
-
-instance ((ElimTermM prf (Map.Lookup prf' mode)) ~ ()) => GMapElim mode prf (K1 R (Permission prf' a)) (K1 R a) where
-  gMapElim _ _ = iso
-    (\(K1 (Permission a)) -> (K1 a))
-    (\(K1 a) -> K1 (Permission a))
-
-{-
-instance ((ElimTermM prf (Map.Lookup prf' mode)) ~ term) => GMapElim mode prf (K1 R (Permission prf' a)) (K1 R (Permission '[ mode :=> term ] a)) where
-  gMapElim _ _ = iso
-    (\(K1 (Permission a)) -> K1 (Permission a))
-    (\(K1 (Permission a)) -> K1 (Permission a))
--}
-
-instance GMapElim mode prf U1 U1 where
-  gMapElim _ _ = iso
-    (\U1 -> U1)
-    (\U1 -> U1)
-
-instance Generic (Book' '[]) where
-  type Rep (Book' '[]) = U1
-  from _ = U1
-  to _   = Book (Map.Empty)
-
-instance (Generic (Book' m)) => Generic (Book' (k :=> v ': m)) where
-  type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: Rep (Book' m)
-  from (Book (Map.Ext k v m)) = M1 (K1 v) :*: from (Book m)
-  to (M1 (K1 v) :*: m) = Book (Map.Ext (Map.Var :: Map.Var k) v (getBook (to m)))
-
-  -- type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 (Book' m))
-  -- from (Book (Map.Ext k v m)) = M1 (K1 v) :*: (M1 (K1 (Book m)))
-  -- to (M1 (K1 v) :*: (M1 (K1 (Book m)))) = Book (Map.Ext (Map.Var :: Map.Var k) v m)
-
-{-
-b :: (Permission '[ "read" :=> Double ] String, String)
-b = f (Permission "asd" :: Permission '[ "read" :=> (String :&: Double) ] String, "asd")
-  where (f, t) = mapElim (Proxy :: Proxy "read") (Proxy :: Proxy String)
--}
-
-{- 
-b :: E
-b = f (F (C (Permission 666) 777))
-  where (f, t) = mapElim (Proxy :: Proxy "read") (Proxy :: Proxy String)
-
-D1
-    ('MetaData "A" "Bookkeeper.Permissions" "main" 'False)
-    (C1
-       ('MetaCons "A" 'PrefixI 'False)
-       (S1
-          ('MetaSel
-             'Nothing 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy)
-          (Rec0 Int)
-        :*: S1
-              ('MetaSel
-                 'Nothing 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy)
-              (Rec0 Int)))
-    Double
--}
-
---------------------------------------------------------------------------------
-
-type family MapADTM mode prf a where
-  MapADTM mode prf (a b c d e) = (a (ElimListM mode prf b) (ElimListM mode prf c) (ElimListM mode prf d) (ElimListM mode prf e))
-  MapADTM mode prf (a b c d) = (a (ElimListM mode prf b) (ElimListM mode prf c) (ElimListM mode prf d))
-  MapADTM mode prf (a b c) = (a (ElimListM mode prf b) (ElimListM mode prf c))
-  MapADTM mode prf (a b) = (a (ElimListM mode prf b))
-
-mapADT' :: (Generic a, Generic (MapADTM mode prf a), MapADT mode prf (Rep a) (Rep (MapADTM mode prf a))) => Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
-mapADT' mode prf = to . mapADT mode prf . from
-
-class MapADT mode prf f g where
-  mapADT :: Proxy mode -> Set.Set prf -> f a -> g a
-
-instance (ElimList mode prf c, ElimListM mode prf c ~ d) => MapADT mode prf (D1 m (C1 m2 (S1 m3 (K1 m4 c)))) (D1 m (C1 m2 (S1 m3 (K1 m4 d)))) where
-  mapADT mode prf (M1 (M1 (M1 (K1 c)))) = (M1 (M1 (M1 (K1 (fst (elimList mode prf) c)))))
-
-instance ( ElimList mode prf c, ElimListM mode prf c ~ d
-         , ElimList mode prf c1, ElimListM mode prf c1 ~ d1
-         ) => MapADT mode prf (D1 m (C1 m2 (S1 m3 (K1 m4 c)) :+: C1 n2 (S1 n3 (K1 n4 c1)))) (D1 m (C1 m2 (S1 m3 (K1 m4 d)) :+: C1 n2 (S1 n3 (K1 n4 d1)))) where
-  mapADT mode prf (M1 (L1 (M1 (M1 (K1 c))))) = (M1 (L1 (M1 (M1 (K1 (fst (elimList mode prf) c))))))
-  mapADT mode prf (M1 (R1 (M1 (M1 (K1 c))))) = (M1 (R1 (M1 (M1 (K1 (fst (elimList mode prf) c))))))
-
-instance ( ElimList mode prf c, ElimListM mode prf c ~ d
-         , ElimList mode prf c1, ElimListM mode prf c1 ~ d1
-         , ElimList mode prf c2, ElimListM mode prf c1 ~ d2
-         ) => MapADT mode prf (D1 m (C1 m2 (S1 m3 (K1 m4 c)) :+: C1 n2 (S1 n3 (K1 n4 c1)) :+: C1 o2 (S1 o3 (K1 o4 c2)))) (D1 m (C1 m2 (S1 m3 (K1 m4 d)) :+: C1 n2 (S1 n3 (K1 n4 d1)) :+: C1 o2 (S1 o3 (K1 o4 d2)))) where
-  mapADT mode prf = undefined -- (M1 (L1 (M1 (M1 (K1 c))))) = (M1 (L1 (M1 (M1 (K1 (fst (elimList mode prf) c))))))
-  mapADT mode prf = undefined -- (M1 (R1 (M1 (M1 (K1 c))))) = (M1 (R1 (M1 (M1 (K1 (fst (elimList mode prf) c))))))
