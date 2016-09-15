@@ -141,7 +141,8 @@ module Bookkeeper.Permissions
 -- * Type families & classes
   , ElimListM
   , ElimList
-  , mapADT'
+
+  , mapADT
   ) where
 
 import Prelude hiding (and)
@@ -294,27 +295,29 @@ type family MapADTM mode prf a where
   MapADTM mode prf (a b) = (a (MapADTM mode prf b))
   MapADTM mode prf a = ElimListM mode prf a
 
-mapADT' :: (Generic a, Generic (MapADTM mode prf a), MapADT mode prf (Rep a) (Rep (MapADTM mode prf a))) => Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
-mapADT' mode prf = to . mapADT mode prf . from
+class MapADT mode prf f where
+  mapADT :: Proxy mode -> Set.Set prf -> f -> (MapADTM mode prf f)
+  default mapADT :: (Generic a, Generic (MapADTM mode prf a), GMapADT mode prf (Rep a) (Rep (MapADTM mode prf a))) => Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
+  mapADT mode prf = to . gMapADT mode prf . from
 
-class MapADT mode prf f g where
-  mapADT :: Proxy mode -> Set.Set prf -> f a -> g a
+class GMapADT mode prf f g where
+  gMapADT :: Proxy mode -> Set.Set prf -> f a -> g a
 
-instance MapADT mode prf U1 U1 where
-  mapADT mode prf = id
+instance GMapADT mode prf U1 U1 where
+  gMapADT mode prf = id
 
-instance (MapADT mode prf f g) => MapADT mode prf (M1 i c f) (M1 i c g) where
-  mapADT mode prf (M1 c) = M1 (mapADT mode prf c)
+instance (GMapADT mode prf f g) => GMapADT mode prf (M1 i c f) (M1 i c g) where
+  gMapADT mode prf (M1 c) = M1 (gMapADT mode prf c)
 
-instance (ElimList mode prf f, ElimListM mode prf f ~ g) => MapADT mode prf (K1 c f) (K1 c g) where
-  mapADT mode prf (K1 c) = K1 (fst (elimList mode prf) c)
+instance (ElimList mode prf f, ElimListM mode prf f ~ g) => GMapADT mode prf (K1 c f) (K1 c g) where
+  gMapADT mode prf (K1 c) = K1 (fst (elimList mode prf) c)
 
-instance (MapADT mode prf f f2, MapADT mode prf g g2) => MapADT mode prf (f :*: g) (f2 :*: g2) where
-  mapADT mode prf (f :*: g) = mapADT mode prf f :*: mapADT mode prf g
+instance (GMapADT mode prf f f2, GMapADT mode prf g g2) => GMapADT mode prf (f :*: g) (f2 :*: g2) where
+  gMapADT mode prf (f :*: g) = gMapADT mode prf f :*: gMapADT mode prf g
 
-instance (MapADT mode prf f f2, MapADT mode prf g g2) => MapADT mode prf (f :+: g) (f2 :+: g2) where
-  mapADT mode prf (L1 f) = L1 (mapADT mode prf f)
-  mapADT mode prf (R1 f) = R1 (mapADT mode prf f)
+instance (GMapADT mode prf f f2, GMapADT mode prf g g2) => GMapADT mode prf (f :+: g) (f2 :+: g2) where
+  gMapADT mode prf (L1 f) = L1 (gMapADT mode prf f)
+  gMapADT mode prf (R1 f) = R1 (gMapADT mode prf f)
 
 --------------------------------------------------------------------------------
 

@@ -107,4 +107,4 @@ data A1 a b c d = A1 a | A2 b | A3 c | A4 d deriving (Show, Generic)
 type A1' = A1 Person Person Person Person
 
 -- d :: _
-d = mapADT' (Proxy :: Proxy "modify") (Admin `Set.Ext` (Auth `Set.Ext` Set.Empty)) (A4 person :: A1')
+d = mapADT (Proxy :: Proxy "modify") (Admin `Set.Ext` (Auth `Set.Ext` Set.Empty)) (A4 person :: A1')
