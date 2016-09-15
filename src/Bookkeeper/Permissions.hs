@@ -229,21 +229,12 @@ instance ( Elim mode prf a
 instance {-# OVERLAPPABLE #-} (UnpackPermissionM mode prf (Permission prf' a) ~ Permission prf' a) => UnpackPermission mode prf (Permission prf' a) where
   unpackPermission _ _ = iso id id
 
-class ElimGeneric mode prf f where
-  elimGeneric :: Proxy mode -> Proxy prf -> Iso (f a) (ElimM mode prf (f a))
-
 type family ElimM mode prf a where
   ElimM mode prf (Book' kvs) = Book' (ElimBookM mode prf kvs)
   ElimM mode prf x           = x
 
 class Elim mode prf a where
   elim :: Proxy mode -> Proxy prf -> Iso a (ElimM mode prf a)
-  {-
-  default elim :: (Generic a, ElimGeneric mode prf (Rep a)) => Proxy mode -> Proxy prf -> Iso a (ElimM mode prf a)
-  elim mode prf = iso
-    undefined
-    undefined
-  -}
 
 instance (ElimBook mode prf kvs) => Elim mode prf (Book' kvs) where
   elim mode prf = iso (\a -> (fst (elimBook mode prf) a)) (\a -> (snd (elimBook mode prf) a))
@@ -297,10 +288,10 @@ instance (Elim mode x a, ElimList mode xs (ElimM mode x a)) => ElimList mode (x 
 -- ADTs ------------------------------------------------------------------------
 
 type family MapADTM mode prf a where
-  MapADTM mode prf (a b c d e) = (a (ElimListM mode prf b) (ElimListM mode prf c) (ElimListM mode prf d) (ElimListM mode prf e))
-  MapADTM mode prf (a b c d) = (a (ElimListM mode prf b) (ElimListM mode prf c) (ElimListM mode prf d))
-  MapADTM mode prf (a b c) = (a (ElimListM mode prf b) (ElimListM mode prf c))
-  MapADTM mode prf (a b) = (a (ElimListM mode prf b))
+  MapADTM mode prf (a b c d e) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d) (MapADTM mode prf e))
+  MapADTM mode prf (a b c d) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d))
+  MapADTM mode prf (a b c) = (a (MapADTM mode prf b) (MapADTM mode prf c))
+  MapADTM mode prf (a b) = (a (MapADTM mode prf b))
   MapADTM mode prf a = ElimListM mode prf a
 
 mapADT' :: (Generic a, Generic (MapADTM mode prf a), MapADT mode prf (Rep a) (Rep (MapADTM mode prf a))) => Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
