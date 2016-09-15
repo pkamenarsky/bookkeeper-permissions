@@ -350,6 +350,8 @@ data E = E A deriving (Show, Generic)
 data F = F C deriving (Show, Generic)
 data G = G D deriving (Show, Generic)
 
+data DT = X A | Y | Z deriving (Show, Generic)
+
 {-
 class MapElim mode prf a b where
   mapElim :: Proxy mode -> Proxy prf -> Iso a b
@@ -368,6 +370,25 @@ type family MapRep a where
   MapRep (f :+: g) = (MapRep f :+: MapRep g)
   MapRep U1 = U1
   MapRep x = x
+
+type family Merge a b where
+  Merge (Book' xs) (Book' ys) = Book' (xs Set.:++ ys)
+  Merge x y = (x, y)
+
+type family FromRep a where
+  FromRep (M1 i c (K1 i2 c2)) = Book' '[ "yyy" :=> c2 ]
+  FromRep (M1 i c f) = (FromRep f)
+  FromRep (K1 i c) = c
+  FromRep (f :*: g) = (FromRep f `Merge` FromRep g)
+  FromRep (f :+: g) = Either (FromRep f) (FromRep g)
+  FromRep U1 = ()
+
+-- type family FromRepBook a where
+--   FromRepBook (M1 i c f) = (FromRepBook f)
+--   FromRepBook (K1 i c) = c
+--   FromRepBook (f :*: g) = (FromRepBook f ': FromRepBook g)
+--   FromRepBook (f :+: g) = Either (FromRepBook f) (FromRepBook g)
+--   FromRepBook U1 = '[]
 
 class GMapElim2 mode prf a where
   gMapElim2 :: Proxy mode -> Proxy prf -> Iso (a p) (MapRep a p)
@@ -503,3 +524,5 @@ D1
               (Rec0 Int)))
     Double
 -}
+
+--------------------------------------------------------------------------------
