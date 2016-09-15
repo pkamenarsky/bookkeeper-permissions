@@ -144,6 +144,7 @@ module Bookkeeper.Permissions
 
   , mapElim
   , Iso
+  , mapADT'
   ) where
 
 import Prelude hiding (and)

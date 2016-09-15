@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -15,6 +16,8 @@ import Data.Proxy
 
 import qualified Data.Type.Map as Map
 import qualified Data.Type.Set as Set
+
+import GHC.Generics
 
 data Admin = Admin
 data Auth = Auth
@@ -75,9 +78,9 @@ test_modify = P.modify (Auth `Set.Ext` Set.Empty) f person
 
 type Person1 = Book
  '[ "name" :=> Permission
-      Admin String
+      '[ "modify" :=> Admin ] String
   , "age"  :=> Permission
-      Admin Int
+      '[ "modify" :=> Admin ] Int
   ]
 
 type Person2 = Book
@@ -92,7 +95,16 @@ type Person3 = Book
   , "age"  :=> Int
   ]
 
+{-
 d :: Person3
 d = f ((emptyBook & #name =: (unsafePermission "name") & #age =: (unsafePermission (666 :: Int))) :: Person1)
   where
     (f, t) = mapElim (Proxy :: Proxy "modify") (Proxy :: Proxy Admin)
+-}
+
+data A1 a = A1 a deriving (Show, Generic)
+
+type A1' = A1 Person
+
+d :: _
+d = mapADT' (Proxy :: Proxy "modify") (Admin `Set.Ext` (Auth `Set.Ext` Set.Empty)) (A1 person)
