@@ -288,27 +288,45 @@ instance (Elim mode x a, ElimList mode xs (ElimM mode x a)) => ElimList mode (x 
 
 -- ADTs ------------------------------------------------------------------------
 
+class ({- Rep b ~ a, -} UnRep a ~ b) => UnGeneric a b | a -> b where
+  type UnRep a
+
 instance Generic (Book' '[]) where
   type Rep (Book' '[]) = U1
   from _ = U1
   to _   = Book (Map.Empty)
+
+instance UnGeneric U1 (Book' '[]) where
+  type UnRep U1 = Book' '[]
 
 instance (Generic (Book' m)) => Generic (Book' (k :=> v ': m)) where
   type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: Rep (Book' m)
   from (Book (Map.Ext k v m)) = M1 (K1 v) :*: from (Book m)
   to (M1 (K1 v) :*: m) = Book (Map.Ext (Map.Var :: Map.Var k) v (getBook (to m)))
 
+instance ((Book' '[ k :=> d] `Merge` UnRep rest) ~ inst) => UnGeneric ((S1 (MetaSel (Just k) x y z) (K1 i d)) :*: rest) inst where
+  type UnRep ((S1 (MetaSel (Just k) x y z) (K1 i d)) :*: rest) = Book' '[ k :=> d] `Merge` UnRep rest
+
 type family Merge a b where
   Merge (Book' xs) (Book' ys) = Book' (xs Set.:++ ys)
   Merge (Book' xs) () = Book' xs
   Merge x y = (x, y)
 
+{-
 type family FromRepBook a where
   FromRepBook (S1 (MetaSel (Just k) x y z) (K1 i d)) = Book' '[ k :=> d]
   FromRepBook (M1 i c f) = (FromRepBook f)
   FromRepBook (K1 i c)   = c
   FromRepBook (f :*: g)  = (FromRepBook f `Merge` FromRepBook g)
   FromRepBook U1         = ()
+-}
+
+type family MapGenericM mode prf a where
+  MapGenericM mode prf (M1 i c f) = M1 i c (MapGenericM mode prf f)
+  MapGenericM mode prf (K1 i c)   = K1 i c
+  MapGenericM mode prf (f :*: g)  = MapGenericM mode prf f :*: MapGenericM mode prf g
+  MapGenericM mode prf (f :+: g)  = MapGenericM mode prf f :+: MapGenericM mode prf g
+  MapGenericM mode prf U1         = U1
 
 type family MapADTM mode prf a where
   MapADTM mode prf (a b c d e) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d) (MapADTM mode prf e))
@@ -316,6 +334,7 @@ type family MapADTM mode prf a where
   MapADTM mode prf (a b c) = (a (MapADTM mode prf b) (MapADTM mode prf c))
   MapADTM mode prf (a b) = (a (MapADTM mode prf b))
   MapADTM mode prf a = ElimListM mode prf a
+  MapADTM mode prf a = UnRep (MapGenericM mode prf (Rep a))
 
 class MapADT mode prf f where
   mapADT :: Proxy mode -> Set.Set prf -> f -> (MapADTM mode prf f)
