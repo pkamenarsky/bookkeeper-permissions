@@ -302,7 +302,9 @@ type family Merge a b where
   Merge (Book' xs) () = Book' xs
   Merge x y = (x, y)
 
-type family IsUnGeneric a :: Bool
+type family IsUnGeneric a :: Bool where
+  IsUnGeneric (Book' a) = True
+  IsUnGeneric a = False
 
 class ({- Rep b ~ a, -} UnRep a ~ b, Generic b) => UnGeneric a b | a -> b where
   type UnRep a
@@ -325,7 +327,7 @@ instance ((Book' '[ k :=> d] `Merge` UnRep rest) ~ inst, Generic inst) => UnGene
 
 type family MapGenericM mode prf a where
   MapGenericM mode prf (M1 i c f) = M1 i c (MapGenericM mode prf f)
-  MapGenericM mode prf (K1 i (Permission prf c))   = K1 i (MapADTM mode prf c)
+  MapGenericM mode prf (K1 i (Permission prf' c))   = K1 i (MapADTM mode prf c)
   MapGenericM mode prf (K1 i c)   = K1 i (MapADTM mode prf c)
   MapGenericM mode prf (f :*: g)  = MapGenericM mode prf f :*: MapGenericM mode prf g
   MapGenericM mode prf (f :+: g)  = MapGenericM mode prf f :+: MapGenericM mode prf g
@@ -337,10 +339,10 @@ class MapGeneric mode prf f where
 instance (MapGeneric mode prf f) => MapGeneric mode prf (M1 i c f) where
   mapGeneric mode prf (M1 c) = M1 (mapGeneric mode prf c)
 
-instance (MapADT mode prf c) => MapGeneric mode prf (K1 i (Permission prf c)) where
+instance (MapADT mode prf c) => MapGeneric mode prf (K1 i (Permission prf' c)) where
   mapGeneric mode prf (K1 (Permission c)) = K1 (mapADT mode prf c)
 
-instance (MapGenericM mode prf (K1 i c) ~ (K1 i (MapADTM mode prf c)), MapADT mode prf c) => MapGeneric mode prf (K1 i c) where
+instance {-# OVERLAPPABLE #-} (MapGenericM mode prf (K1 i c) ~ (K1 i (MapADTM mode prf c)), MapADT mode prf c) => MapGeneric mode prf (K1 i c) where
   mapGeneric mode prf (K1 c) = K1 (mapADT mode prf c)
 
 instance (MapGeneric mode prf f, MapGeneric mode prf g) => MapGeneric mode prf (f :*: g) where
