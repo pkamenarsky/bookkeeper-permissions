@@ -323,6 +323,7 @@ type family FromRepBook a where
 
 type family MapGenericM mode prf a where
   MapGenericM mode prf (M1 i c f) = M1 i c (MapGenericM mode prf f)
+  MapGenericM mode prf (K1 i (Permission prf c))   = K1 i c
   MapGenericM mode prf (K1 i c)   = K1 i c
   MapGenericM mode prf (f :*: g)  = MapGenericM mode prf f :*: MapGenericM mode prf g
   MapGenericM mode prf (f :+: g)  = MapGenericM mode prf f :+: MapGenericM mode prf g
@@ -333,7 +334,7 @@ type family MapADTM mode prf a where
   MapADTM mode prf (a b c d) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d))
   MapADTM mode prf (a b c) = (a (MapADTM mode prf b) (MapADTM mode prf c))
   MapADTM mode prf (a b) = (a (MapADTM mode prf b))
-  MapADTM mode prf a = ElimListM mode prf a
+  -- MapADTM mode prf a = ElimListM mode prf a
   MapADTM mode prf a = UnRep (MapGenericM mode prf (Rep a))
 
 class MapADT mode prf f where
