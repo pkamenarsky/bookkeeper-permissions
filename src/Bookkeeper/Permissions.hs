@@ -145,6 +145,7 @@ module Bookkeeper.Permissions
   , ElimList
 
   , mapADT
+  , mapADT'
   ) where
 
 import Prelude hiding (and)
@@ -380,10 +381,13 @@ type family MapADTM mode prf a where
   -- MapADTM mode prf a = ElimListM mode prf a
   MapADTM mode prf a = UnRepIfUnGenericM (IsUnGeneric a) mode prf a
 
+mapADT' :: (Generic a, Generic (MapADTM mode prf a), GMapADT mode prf (Rep a) (Rep (MapADTM mode prf a))) => Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
+mapADT' mode prf = to . gMapADT mode prf . from
+
 class MapADT mode prf f where
   mapADT :: Proxy mode -> Set.Set prf -> f -> MapADTM mode prf f
-  default mapADT :: (Generic a, Generic (MapADTM mode prf a), GMapADT mode prf (Rep a) (Rep (MapADTM mode prf a))) => Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
-  mapADT mode prf = to . gMapADT mode prf . from
+  -- default mapADT :: (Generic a, Generic (MapADTM mode prf a), GMapADT mode prf (Rep a) (Rep (MapADTM mode prf a))) => Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
+  -- mapADT mode prf = to . gMapADT mode prf . from
 
 instance ( UnRepIfUnGeneric (IsUnGeneric a) mode prf a
          , MapADTM mode prf a ~ (UnRepIfUnGenericM (IsUnGeneric a) mode prf a)
@@ -399,10 +403,10 @@ instance GMapADT mode prf U1 U1 where
 instance (GMapADT mode prf f g) => GMapADT mode prf (M1 i c f) (M1 i c g) where
   gMapADT mode prf (M1 c) = M1 (gMapADT mode prf c)
 
-{-
-instance (ElimList mode prf f, ElimListM mode prf f ~ g) => GMapADT mode prf (K1 c f) (K1 c g) where
-  gMapADT mode prf (K1 c) = K1 (fst (elimList mode prf) c)
--}
+instance ( UnRepIfUnGeneric (IsUnGeneric f) mode prf f
+         , g ~ (UnRepIfUnGenericM (IsUnGeneric f) mode prf f)
+         ) => GMapADT mode prf (K1 c f) (K1 c g) where
+  gMapADT mode prf (K1 f) = K1 (unRepIfUnGeneric (Proxy :: Proxy (IsUnGeneric f)) mode prf f)
 
 instance (GMapADT mode prf f f2, GMapADT mode prf g g2) => GMapADT mode prf (f :*: g) (f2 :*: g2) where
   gMapADT mode prf (f :*: g) = gMapADT mode prf f :*: gMapADT mode prf g
