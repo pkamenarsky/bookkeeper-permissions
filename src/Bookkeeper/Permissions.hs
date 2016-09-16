@@ -1,9 +1,11 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedLabels #-}
@@ -157,6 +159,8 @@ import Data.Proxy
 import Data.Type.Bool
 import Data.Type.Equality
 
+import GHC.Types (Constraint)
+
 import Bookkeeper hiding (modify)
 import Bookkeeper.Internal hiding (modify)
 
@@ -290,10 +294,15 @@ instance (Elim mode x a, ElimList mode xs (ElimM mode x a)) => ElimList mode (x 
 
 -- ADTs ------------------------------------------------------------------------
 
+data Dict :: Constraint -> * where
+  Dict :: a => Dict a
+
 type family Merge a b where
   Merge (Book' xs) (Book' ys) = Book' (xs Set.:++ ys)
   Merge (Book' xs) () = Book' xs
   Merge x y = (x, y)
+
+type family IsUnGeneric a :: Bool
 
 class ({- Rep b ~ a, -} UnRep a ~ b, Generic b) => UnGeneric a b | a -> b where
   type UnRep a
@@ -302,10 +311,6 @@ instance Generic (Book' '[]) where
   type Rep (Book' '[]) = U1
   from _ = U1
   to _   = Book (Map.Empty)
-
-type family IsUnGeneric a :: Bool
-
-type instance IsUnGeneric (Book' a) = 'True
 
 instance UnGeneric U1 (Book' '[]) where
   type UnRep U1 = Book' '[]
@@ -348,27 +353,40 @@ instance (MapGeneric mode prf f, MapGeneric mode prf g) => MapGeneric mode prf (
 instance MapGeneric mode prf U1 where
   mapGeneric mode prf U1 = U1
 
+type family UnRepIfUnGenericM cond mode prf a where
+  UnRepIfUnGenericM 'True  mode prf a = UnRep (MapGenericM mode prf (Rep a))
+  UnRepIfUnGenericM 'False mode prf a = a
+
+class UnRepIfUnGeneric cnst mode prf a where
+  unRepIfUnGeneric :: Proxy cnst -> Proxy mode -> Set.Set prf -> a -> UnRepIfUnGenericM cnst mode prf a
+
+instance ( Generic a
+         , Generic (UnRep (MapGenericM mode prf (Rep a)))
+         , MapGenericM mode prf (Rep a) ~ (Rep (UnRep (MapGenericM mode prf (Rep a))))
+         , MapGeneric mode prf (Rep a)
+         ) => UnRepIfUnGeneric True mode prf a where
+  unRepIfUnGeneric _ mode prf = to . mapGeneric mode prf . from
+
+instance UnRepIfUnGeneric False mode prf a where
+  unRepIfUnGeneric _ mode prf a = a
+
 type family MapADTM mode prf a where
   MapADTM mode prf (a b c d e) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d) (MapADTM mode prf e))
   MapADTM mode prf (a b c d) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d))
   MapADTM mode prf (a b c) = (a (MapADTM mode prf b) (MapADTM mode prf c))
   MapADTM mode prf (a b) = (a (MapADTM mode prf b))
   -- MapADTM mode prf a = ElimListM mode prf a
-  MapADTM mode prf a = If (IsUnGeneric a)
-                          (UnRep (MapGenericM mode prf (Rep a)))
-                          a
+  MapADTM mode prf a = UnRepIfUnGenericM (IsUnGeneric a) mode prf a
 
 class MapADT mode prf f where
   mapADT :: Proxy mode -> Set.Set prf -> f -> MapADTM mode prf f
   default mapADT :: (Generic a, Generic (MapADTM mode prf a), GMapADT mode prf (Rep a) (Rep (MapADTM mode prf a))) => Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
   mapADT mode prf = to . gMapADT mode prf . from
 
-instance ( Generic a
-         , Generic (MapADTM mode prf a)
-         , MapGenericM mode prf (Rep a) ~ (Rep (MapADTM mode prf a))
-         , MapGeneric mode prf (Rep a)
+instance ( UnRepIfUnGeneric (IsUnGeneric a) mode prf a
+         , MapADTM mode prf a ~ (UnRepIfUnGenericM (IsUnGeneric a) mode prf a)
          ) => MapADT mode prf a where
-  mapADT mode prf = to . mapGeneric mode prf . from
+  mapADT mode prf = unRepIfUnGeneric _ mode prf
 
 -- instance MapADT mode prf a where
 --   mapADT mode prf a = a
