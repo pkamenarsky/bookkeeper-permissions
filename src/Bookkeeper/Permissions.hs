@@ -388,9 +388,6 @@ instance ( UnRepIfUnGeneric (IsUnGeneric a) mode prf a
          ) => MapADT mode prf a where
   mapADT mode prf = unRepIfUnGeneric (Proxy :: Proxy (IsUnGeneric a)) mode prf
 
--- instance MapADT mode prf a where
---   mapADT mode prf a = a
-
 class GMapADT mode prf f g where
   gMapADT :: Proxy mode -> Set.Set prf -> f a -> g a
 
