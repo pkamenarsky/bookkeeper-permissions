@@ -322,9 +322,18 @@ type family Merge a b where
   Merge (Book' xs) () = Book' xs
   Merge x y = (x, y)
 
-type family IsUnGeneric a :: Bool where
-  IsUnGeneric (Book' a) = True
-  IsUnGeneric a = False
+-- type family IsUnGeneric a :: Bool where
+--   IsUnGeneric (Book' a) = True
+--   IsUnGeneric a = False
+
+type family IsUnGeneric a :: Bool
+
+type instance IsUnGeneric (Book' a) = True
+
+type instance IsUnGeneric Int = False
+type instance IsUnGeneric Bool = False
+type instance IsUnGeneric Char = False
+type instance IsUnGeneric String = False
 
 class ({- Rep b ~ a, -} UnRep a ~ b, Generic b) => UnGeneric a b | a -> b where
   type UnRep a
