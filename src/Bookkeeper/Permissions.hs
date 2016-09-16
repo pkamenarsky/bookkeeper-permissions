@@ -386,7 +386,7 @@ class MapADT mode prf f where
 instance ( UnRepIfUnGeneric (IsUnGeneric a) mode prf a
          , MapADTM mode prf a ~ (UnRepIfUnGenericM (IsUnGeneric a) mode prf a)
          ) => MapADT mode prf a where
-  mapADT mode prf = unRepIfUnGeneric _ mode prf
+  mapADT mode prf = unRepIfUnGeneric (Proxy :: Proxy (IsUnGeneric a)) mode prf
 
 -- instance MapADT mode prf a where
 --   mapADT mode prf a = a
