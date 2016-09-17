@@ -147,6 +147,7 @@ module Bookkeeper.Permissions
   , mapADT
   , mapADT'
   , mapADT''
+  , mapADT'''
   ) where
 
 import Prelude hiding (and)
@@ -322,18 +323,18 @@ type family Merge a b where
   Merge (Book' xs) () = Book' xs
   Merge x y = (x, y)
 
--- type family IsUnGeneric a :: Bool where
---   IsUnGeneric (Book' a) = True
---   IsUnGeneric a = False
+type family IsUnGeneric a :: Bool where
+  IsUnGeneric (Book' a) = True
+  IsUnGeneric a = False
 
-type family IsUnGeneric a :: Bool
-
-type instance IsUnGeneric (Book' a) = True
-
-type instance IsUnGeneric Int = False
-type instance IsUnGeneric Bool = False
-type instance IsUnGeneric Char = False
-type instance IsUnGeneric String = False
+-- type family IsUnGeneric a :: Bool
+-- 
+-- type instance IsUnGeneric (Book' a) = True
+-- 
+-- type instance IsUnGeneric Int = False
+-- type instance IsUnGeneric Bool = False
+-- type instance IsUnGeneric Char = False
+-- type instance IsUnGeneric String = False
 
 class ({- Rep b ~ a, -} UnRep a ~ b, Generic b) => UnGeneric a b | a -> b where
   type UnRep a
@@ -394,6 +395,16 @@ type family MapADTM cond mode prf a where
   MapADTM cond mode prf (a b) = (a (MapADTM (IsUnGeneric b) mode prf b))
 
   MapADTM cond mode prf a = a
+
+mapADT''' :: ( Generic a, Generic b, MapGeneric mode prf (Rep a)
+             , MapADTM (IsUnGeneric a) mode prf a ~ b
+             , MapGenericM mode prf (Rep a) ~ (Rep b)
+             )
+           => Proxy mode
+           -> Set.Set prf
+           -> a
+           -> b
+mapADT''' mode prf = to . mapGeneric mode prf . from
 
 mapADT' :: forall a mode prf. (MapADT (IsUnGeneric a) mode prf a) => Proxy mode -> Set.Set prf -> a -> MapADTM (IsUnGeneric a) mode prf a
 mapADT' = mapADT (Proxy :: Proxy (IsUnGeneric a))
