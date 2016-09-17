@@ -440,10 +440,11 @@ instance GMapADT mode prf U1 U1 where
 instance (GMapADT mode prf f g) => GMapADT mode prf (M1 i c f) (M1 i c g) where
   gMapADT mode prf (M1 c) = M1 (gMapADT mode prf c)
 
-instance ( MapADT (IsUnGeneric f) mode prf f
-         , MapADTM (IsUnGeneric f) mode prf f ~ g
-         ) => GMapADT mode prf (K1 c f) (K1 c g) where
-  gMapADT mode prf (K1 f) = undefined
+instance GMapADT mode prf (K1 i (Permission prf' c)) (K1 i c) where
+  gMapADT mode prf (K1 (Permission f)) = K1 f
+
+instance GMapADT mode prf (K1 i c) (K1 i c) where
+  gMapADT mode prf (K1 f) = (K1 f)
 
 instance (GMapADT mode prf f f2, GMapADT mode prf g g2) => GMapADT mode prf (f :*: g) (f2 :*: g2) where
   gMapADT mode prf (f :*: g) = gMapADT mode prf f :*: gMapADT mode prf g
