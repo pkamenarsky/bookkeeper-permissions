@@ -304,6 +304,11 @@ instance (Generic (Book' m)) => Generic (Book' (k :=> v ': m)) where
   from (Book (Map.Ext k v m)) = M1 (K1 v) :*: from (Book m)
   to (M1 (K1 v) :*: m) = Book (Map.Ext (Map.Var :: Map.Var k) v (getBook (to m)))
 
+type family Merge a b where
+  Merge (Book' xs) (Book' ys) = Book' (xs Set.:++ ys)
+  Merge (Book' xs) () = Book' xs
+  Merge x y = (x, y)
+
 type family DetBookM mode prf a where
   DetBookM mode prf (Book' (k :=> Permission prf' v ': r)) = Book' '[k :=> MapADTM mode prf v] `Merge` DetBookM mode prf (Book' r)
   DetBookM mode prf (Book' (k :=> v ': r)) = Book' '[k :=> MapADTM mode prf v] `Merge` DetBookM mode prf (Book' r)
@@ -319,11 +324,6 @@ type instance DetM mode prf (Book' kvs) = DetBookM mode prf (Book' kvs)
 type instance DetM mode prf Int = Int
 type instance DetM mode prf Char = Char
 type instance DetM mode prf Bool = Bool
-
-type family Merge a b where
-  Merge (Book' xs) (Book' ys) = Book' (xs Set.:++ ys)
-  Merge (Book' xs) () = Book' xs
-  Merge x y = (x, y)
 
 type family MapGenericM mode prf a where
   MapGenericM mode prf (M1 i c f) = M1 i c (MapGenericM mode prf f)
