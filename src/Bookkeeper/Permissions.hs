@@ -338,29 +338,43 @@ type family MapGenericM mode prf a where
   MapGenericM mode prf U1         = U1
 
 class MapGeneric mode prf f g | mode prf f -> g where
-  mapGeneric :: Proxy mode -> Set.Set prf -> f x -> g x
+  mapGeneric :: Proxy mode -> Set.Set prf -> Iso (f x) (g x)
 
 instance (MapGeneric mode prf f g) => MapGeneric mode prf (M1 i c f) (M1 i c g) where
-  mapGeneric mode prf (M1 c) = M1 (mapGeneric mode prf c)
+  mapGeneric mode prf = iso
+    (\(M1 c) -> M1 (fst (mapGeneric mode prf) c))
+    (\(M1 c) -> M1 (snd (mapGeneric mode prf) c))
 
 instance (MapADT mode prf f g) => MapGeneric mode prf (K1 i (Permission prf' f)) (K1 i g) where
-  mapGeneric mode prf (K1 (Permission c)) = K1 (mapADT mode prf c)
+  mapGeneric mode prf = iso
+    (\(K1 (Permission c)) -> K1 (fst (mapADT mode prf) c))
+    (\(K1 c) -> K1 (Permission (snd (mapADT mode prf) c)))
 
 instance {-# OVERLAPPABLE #-} (MapADT mode prf f g) => MapGeneric mode prf (K1 i f) (K1 i g) where
-  mapGeneric mode prf (K1 c) = K1 (mapADT mode prf c)
+  mapGeneric mode prf = iso
+    (\(K1 c) -> K1 (fst (mapADT mode prf) c))
+    (\(K1 c) -> K1 (snd (mapADT mode prf) c))
 
 instance MapGeneric mode prf (K1 i f) (K1 i f) where
-  mapGeneric mode prf (K1 c) = K1 c
+  mapGeneric mode prf = iso
+    (\(K1 c) -> K1 c)
+    (\(K1 c) -> K1 c)
 
 instance (MapGeneric mode prf f f2, MapGeneric mode prf g g2) => MapGeneric mode prf (f :*: g) (f2 :*: g2) where
-  mapGeneric mode prf (f :*: g) = mapGeneric mode prf f :*: mapGeneric mode prf g
+  mapGeneric mode prf = iso
+    (\(f :*: g) -> fst (mapGeneric mode prf) f :*: fst (mapGeneric mode prf) g)
+    (\(f :*: g) -> snd (mapGeneric mode prf) f :*: snd (mapGeneric mode prf) g)
 
 instance (MapGeneric mode prf f f2, MapGeneric mode prf g g2) => MapGeneric mode prf (f :+: g) (f2 :+: g2) where
-  mapGeneric mode prf (L1 f) = L1 (mapGeneric mode prf f)
-  mapGeneric mode prf (R1 g) = R1 (mapGeneric mode prf g)
+  mapGeneric mode prf = iso
+    (\(L1 f) -> L1 (fst (mapGeneric mode prf) f))
+    (\(L1 f) -> L1 (snd (mapGeneric mode prf) f))
+  mapGeneric mode prf = iso
+    (\(R1 g) -> R1 (fst (mapGeneric mode prf) g))
+    (\(R1 g) -> R1 (snd (mapGeneric mode prf) g))
 
 instance MapGeneric mode prf U1 U1 where
-  mapGeneric mode prf U1 = U1
+  mapGeneric mode prf = iso id id
 
 type family MapADTM mode prf a where
   MapADTM mode prf (a b c d e) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d) (MapADTM mode prf e))
@@ -371,17 +385,19 @@ type family MapADTM mode prf a where
   MapADTM mode prf a = DetM mode prf a
 
 class (MapADTM mode prf a ~ b) => MapADT mode prf a b where
-  mapADT :: Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
+  mapADT :: Proxy mode -> Set.Set prf -> Iso a (MapADTM mode prf a)
 
 instance {-# OVERLAPPABLE #-}
          ( Generic a, Generic b
          , MapADTM mode prf a ~ b
          , MapGeneric mode prf (Rep a) (Rep b)
          ) => MapADT mode prf a b where
-  mapADT mode prf = to . mapGeneric mode prf . from
+  mapADT mode prf = iso
+    (to . fst (mapGeneric mode prf) . from)
+    (to . snd (mapGeneric mode prf) . from)
 
 instance (MapADTM mode prf a ~ a) => MapADT mode prf a a where
-  mapADT mode prf a = a
+  mapADT mode prf = iso id id
 
 --------------------------------------------------------------------------------
 
