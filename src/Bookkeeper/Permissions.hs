@@ -145,7 +145,6 @@ module Bookkeeper.Permissions
   , ElimList
 
   , mapADT
-  , mapADT'''
   ) where
 
 import Prelude hiding (and)
@@ -326,13 +325,11 @@ class MapGeneric mode prf f where
 instance (MapGeneric mode prf f) => MapGeneric mode prf (M1 i c f) where
   mapGeneric mode prf (M1 c) = M1 (mapGeneric mode prf c)
 
-instance {-# OVERLAPPABLE #-} (MapGenericM mode prf (K1 i c) ~ (K1 i (MapADTM mode prf c))) => MapGeneric mode prf (K1 i c) where
-  mapGeneric mode prf (K1 c) = K1 (mapADT mode prf c)
+instance (MapGeneric mode prf (Rep c)) => MapGeneric mode prf (K1 i (Permission prf' c)) where
+  mapGeneric mode prf (K1 c) = undefined -- K1 (to $ mapGeneric mode prf $ from c)
 
-{-
 instance {-# OVERLAPPABLE #-} (MapGeneric mode prf (Rep c)) => MapGeneric mode prf (K1 i c) where
-  mapGeneric mode prf (K1 c) = K1 (to $ mapGeneric mode prf $ from c)
--}
+  mapGeneric mode prf (K1 c) = undefined -- K1 (to $ mapGeneric mode prf $ from c)
 
 instance (MapGeneric mode prf f, MapGeneric mode prf g) => MapGeneric mode prf (f :*: g) where
   mapGeneric mode prf (f :*: g) = mapGeneric mode prf f :*: mapGeneric mode prf g
@@ -344,7 +341,7 @@ instance (MapGeneric mode prf f, MapGeneric mode prf g) => MapGeneric mode prf (
 instance MapGeneric mode prf U1 where
   mapGeneric mode prf U1 = U1
 
-type family DetM mode prf a
+type family DetM mode (prf :: [*]) a
 
 type instance DetM mode prf (Book' kvs) = DetBookM mode prf (Book' kvs)
 
@@ -360,10 +357,6 @@ type family DetBookM mode prf a where
   DetBookM mode prf (Book' '[]) = Book' '[]
   DetBookM mode prf a = a
 
--- type family FlatB (a :: *) :: Bool where
---   FlatB True = True
---   FlatB a    = False
-
 type family MapADTM mode prf a where
   MapADTM mode prf (a b c d e) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d) (MapADTM mode prf e))
   MapADTM mode prf (a b c d) = (a (MapADTM mode prf b) (MapADTM mode prf c) (MapADTM mode prf d))
@@ -372,15 +365,15 @@ type family MapADTM mode prf a where
 
   MapADTM mode prf a = DetM mode prf a
 
-mapADT''' :: ( Generic a, Generic b, MapGeneric mode prf (Rep a)
-             , MapADTM mode prf a ~ b
-             , MapGenericM mode prf (Rep a) ~ (Rep b)
-             )
-           => Proxy mode
-           -> Set.Set prf
-           -> a
-           -> b
-mapADT''' mode prf = to . mapGeneric mode prf . from
+mapADT :: ( Generic a, Generic b, MapGeneric mode prf (Rep a)
+          , MapADTM mode prf a ~ b
+          , MapGenericM mode prf (Rep a) ~ (Rep b)
+          )
+        => Proxy mode
+        -> Set.Set prf
+        -> a
+        -> b
+mapADT mode prf = to . mapGeneric mode prf . from
 
 --------------------------------------------------------------------------------
 
