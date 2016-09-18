@@ -319,36 +319,37 @@ type family MapGenericM mode prf a where
   MapGenericM mode prf (f :+: g)  = MapGenericM mode prf f :+: MapGenericM mode prf g
   MapGenericM mode prf U1         = U1
 
-class MapGeneric mode prf f where
-  mapGeneric :: Proxy mode -> Set.Set prf -> f x -> MapGenericM mode prf f x
+class MapGeneric mode prf f g | mode prf f -> g where
+  mapGeneric :: Proxy mode -> Set.Set prf -> f x -> g x
 
-instance (MapGeneric mode prf f) => MapGeneric mode prf (M1 i c f) where
+instance (MapGeneric mode prf f g) => MapGeneric mode prf (M1 i c f) (M1 i c g) where
   mapGeneric mode prf (M1 c) = M1 (mapGeneric mode prf c)
 
-instance (MapGeneric mode prf (Rep c)) => MapGeneric mode prf (K1 i (Permission prf' c)) where
+instance (MapGeneric mode prf (Rep f) (Rep g)) => MapGeneric mode prf (K1 i (Permission prf' f)) (K1 i g) where
   mapGeneric mode prf (K1 c) = undefined -- K1 (to $ mapGeneric mode prf $ from c)
 
-instance {-# OVERLAPPABLE #-} (MapGeneric mode prf (Rep c)) => MapGeneric mode prf (K1 i c) where
+instance {-# OVERLAPPABLE #-} (MapGeneric mode prf (Rep f) (Rep g)) => MapGeneric mode prf (K1 i f) (K1 i g) where
   mapGeneric mode prf (K1 c) = undefined -- K1 (to $ mapGeneric mode prf $ from c)
 
-instance (MapGeneric mode prf f, MapGeneric mode prf g) => MapGeneric mode prf (f :*: g) where
+instance {-# OVERLAPPING #-} MapGeneric mode prf (K1 i f) (K1 i f) where
+  mapGeneric mode prf (K1 c) = undefined -- K1 (to $ mapGeneric mode prf $ from c)
+
+instance (MapGeneric mode prf f f2, MapGeneric mode prf g g2) => MapGeneric mode prf (f :*: g) (f2 :*: g2) where
   mapGeneric mode prf (f :*: g) = mapGeneric mode prf f :*: mapGeneric mode prf g
 
-instance (MapGeneric mode prf f, MapGeneric mode prf g) => MapGeneric mode prf (f :+: g) where
+instance (MapGeneric mode prf f f2, MapGeneric mode prf g g2) => MapGeneric mode prf (f :+: g) (f2 :+: g2) where
   mapGeneric mode prf (L1 f) = L1 (mapGeneric mode prf f)
   mapGeneric mode prf (R1 g) = R1 (mapGeneric mode prf g)
 
-instance MapGeneric mode prf U1 where
+instance MapGeneric mode prf U1 U1 where
   mapGeneric mode prf U1 = U1
 
-type family DetM mode (prf :: [*]) a
+type family DetM (mode :: Symbol) (prf :: [*]) a
 
 type instance DetM mode prf (Book' kvs) = DetBookM mode prf (Book' kvs)
 
 type instance DetM mode prf Int = Int
-
 type instance DetM mode prf Char = Char
-
 type instance DetM mode prf Bool = Bool
 
 type family DetBookM mode prf a where
@@ -365,7 +366,7 @@ type family MapADTM mode prf a where
 
   MapADTM mode prf a = DetM mode prf a
 
-mapADT :: ( Generic a, Generic b, MapGeneric mode prf (Rep a)
+mapADT :: ( Generic a, Generic b, MapGeneric mode prf (Rep a) (Rep b)
           , MapADTM mode prf a ~ b
           , MapGenericM mode prf (Rep a) ~ (Rep b)
           )
