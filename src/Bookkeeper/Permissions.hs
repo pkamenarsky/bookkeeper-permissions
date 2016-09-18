@@ -322,6 +322,7 @@ type instance DetM mode prf (Book' kvs) = DetBookM mode prf (Book' kvs)
 type instance DetM mode prf Int = Int
 type instance DetM mode prf Char = Char
 type instance DetM mode prf Bool = Bool
+type instance DetM mode prf Double = Double
 
 -- ADTs ------------------------------------------------------------------------
 
@@ -345,7 +346,7 @@ instance (MapGeneric mode prf f g) => MapGeneric mode prf (M1 i c f) (M1 i c g) 
 instance (MapADT mode prf f g) => MapGeneric mode prf (K1 i (Permission prf' f)) (K1 i g) where
   mapGeneric mode prf (K1 (Permission c)) = K1 (mapADT mode prf c)
 
-instance {-# OVERLAPPABLE #-} (MapADT mode prf f g) => MapGeneric mode prf (K1 i f) (K1 i g) where
+instance (MapADT mode prf f g) => MapGeneric mode prf (K1 i f) (K1 i g) where
   mapGeneric mode prf (K1 c) = K1 (mapADT mode prf c)
 
 instance MapGeneric mode prf (K1 i f) (K1 i f) where
@@ -372,7 +373,7 @@ type family MapADTM mode prf a where
 class (MapADTM mode prf a ~ b) => MapADT mode prf a b where
   mapADT :: Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
 
-instance {-# OVERLAPPABLE #-}
+instance
          ( Generic a, Generic b
          , MapADTM mode prf a ~ b
          , MapGeneric mode prf (Rep a) (Rep b)

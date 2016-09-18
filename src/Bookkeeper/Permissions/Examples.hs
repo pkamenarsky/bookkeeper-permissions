@@ -22,6 +22,13 @@ import GHC.Generics
 data Admin = Admin
 data Auth = Auth
 
+type RobotT = Book '[ "ai" :=> Permission '[ "modify" :=> Admin ] Double ]
+type HumanT = Book '[ "ei" :=> Permission '[ "modify" :=> Admin ] Double ]
+
+data PersonType' a b = Robot a | Human b deriving (Show, Generic)
+
+type PersonType = PersonType' RobotT HumanT
+
 type Person = Book
  '[ "name" :=> Permission
       '[ "modify" :=> (Admin :&: Auth)
@@ -45,6 +52,7 @@ type Person = Book
        , "modify" :=> Admin
        , "insert" :=> Auth
        ] String
+  , "type" :=> Permission '[ "modify" :=> Admin ] PersonType
   ]
 
 person :: Person
@@ -53,6 +61,7 @@ person = emptyBook
   & #age  =: unsafePermission 6
   & #bff  =: unsafePermission (emptyBook & #forever =: unsafePermission True)
   & #key  =: unsafePermission "key"
+  & #type =: unsafePermission (Robot (emptyBook & #ai =: unsafePermission 200))
 
 {-
 test_insert :: Person
