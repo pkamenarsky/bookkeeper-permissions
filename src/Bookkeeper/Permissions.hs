@@ -315,15 +315,17 @@ type family DetBookM mode prf a where
   DetBookM mode prf (Book' '[]) = Book' '[]
   DetBookM mode prf a = a
 
--- ADTs ------------------------------------------------------------------------
-
-type family DetM (mode :: Symbol) (prf :: [*]) a
-
 type instance DetM mode prf (Book' kvs) = DetBookM mode prf (Book' kvs)
+
+-- Other types -----------------------------------------------------------------
 
 type instance DetM mode prf Int = Int
 type instance DetM mode prf Char = Char
 type instance DetM mode prf Bool = Bool
+
+-- ADTs ------------------------------------------------------------------------
+
+type family DetM (mode :: Symbol) (prf :: [*]) a
 
 type family MapGenericM mode prf a where
   MapGenericM mode prf (M1 i c f) = M1 i c (MapGenericM mode prf f)
