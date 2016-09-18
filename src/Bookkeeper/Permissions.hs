@@ -371,9 +371,8 @@ class MapADT mode prf a b | mode prf a -> b where
 
 instance {-# INCOHERENT #-}
          ( Generic a, Generic b
-         , MapGeneric mode prf (Rep a) (Rep b)
          , MapADTM mode prf a ~ b
-         , MapGenericM mode prf (Rep a) ~ (Rep b)
+         , MapGeneric mode prf (Rep a) (Rep b)
          ) => MapADT mode prf a b where
   mapADT mode prf = to . mapGeneric mode prf . from
 
