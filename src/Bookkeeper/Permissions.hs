@@ -319,7 +319,7 @@ type family MapGenericM mode prf a where
   MapGenericM mode prf (f :+: g)  = MapGenericM mode prf f :+: MapGenericM mode prf g
   MapGenericM mode prf U1         = U1
 
-class MapGeneric mode prf f g | mode prf f -> g where
+class MapGeneric mode prf f g {- | mode prf f -> g -} where
   mapGeneric :: Proxy mode -> Set.Set prf -> f x -> g x
 
 instance (MapGeneric mode prf f g) => MapGeneric mode prf (M1 i c f) (M1 i c g) where
@@ -366,18 +366,18 @@ type family MapADTM mode prf a where
 
   MapADTM mode prf a = DetM mode prf a
 
-class MapADT mode prf a b | mode prf a -> b where
+class MapADT mode prf a b {- | mode prf a -> b -} where
   mapADT :: Proxy mode -> Set.Set prf -> a -> b
-  default mapADT :: ( Generic a, Generic b
-                    , MapGeneric mode prf (Rep a) (Rep b)
-                    , MapADTM mode prf a ~ b
-                    , MapGenericM mode prf (Rep a) ~ (Rep b)
-                    )
-                   => Proxy mode
-                   -> Set.Set prf
-                   -> a
-                   -> b
+
+instance {-# INCOHERENT #-} ( Generic a, Generic b
+            , MapGeneric mode prf (Rep a) (Rep b)
+            , MapADTM mode prf a ~ b
+            , MapGenericM mode prf (Rep a) ~ (Rep b)
+            ) => MapADT mode prf a b where
   mapADT mode prf = to . mapGeneric mode prf . from
+
+instance MapADT mode prf a a where
+  mapADT mode prf a = a
 
 --------------------------------------------------------------------------------
 
