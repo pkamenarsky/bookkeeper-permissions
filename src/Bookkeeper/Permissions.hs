@@ -145,8 +145,6 @@ module Bookkeeper.Permissions
   , ElimList
 
   , mapADT
-  , mapADT'
-  , mapADT''
   , mapADT'''
   ) where
 
@@ -359,6 +357,11 @@ instance (MapADT (IsUnGeneric c) mode prf c) => MapGeneric mode prf (K1 i (Permi
 instance {-# OVERLAPPABLE #-} (MapGenericM mode prf (K1 i c) ~ (K1 i (MapADTM (IsUnGeneric c) mode prf c)), MapADT (IsUnGeneric c) mode prf c) => MapGeneric mode prf (K1 i c) where
   mapGeneric mode prf (K1 c) = K1 (mapADT (Proxy :: Proxy (IsUnGeneric c)) mode prf c)
 
+{-
+instance {-# OVERLAPPABLE #-} (MapGeneric mode prf (Rep c)) => MapGeneric mode prf (K1 i c) where
+  mapGeneric mode prf (K1 c) = K1 (to $ mapGeneric mode prf $ from c)
+-}
+
 instance (MapGeneric mode prf f, MapGeneric mode prf g) => MapGeneric mode prf (f :*: g) where
   mapGeneric mode prf (f :*: g) = mapGeneric mode prf f :*: mapGeneric mode prf g
 
@@ -386,6 +389,16 @@ instance ( Generic a
 instance UnRepIfUnGeneric False mode prf a where
   unRepIfUnGeneric _ mode prf a = a
 
+class Det a where
+  type DetM a
+
+instance Det (Book' kvs) where
+  type DetM (Book' kvs) = TR (Book' kvs)
+
+type family TR a where
+  TR (Book' (k :=> (Permission prf' v) ': r)) = Book' (k :=> v ': r)
+  TR (Book' (k :=> v ': r)) = Book' (k :=> v ': r)
+
 type family MapADTM cond mode prf a where
   MapADTM True mode prf a = UnRep (MapGenericM mode prf (Rep a))
 
@@ -406,18 +419,8 @@ mapADT''' :: ( Generic a, Generic b, MapGeneric mode prf (Rep a)
            -> b
 mapADT''' mode prf = to . mapGeneric mode prf . from
 
-mapADT' :: forall a mode prf. (MapADT (IsUnGeneric a) mode prf a) => Proxy mode -> Set.Set prf -> a -> MapADTM (IsUnGeneric a) mode prf a
-mapADT' = mapADT (Proxy :: Proxy (IsUnGeneric a))
-
-mapADT'' :: (cond ~ False, Generic a, Generic (MapADTM cond mode prf a), GMapADT mode prf (Rep a) (Rep (MapADTM cond mode prf a))) => Proxy mode -> Set.Set prf -> a -> MapADTM cond mode prf a
-mapADT'' = undefined
-
 class MapADT cond mode prf a where
   mapADT :: Proxy cond -> Proxy mode -> Set.Set prf -> a -> MapADTM cond mode prf a
-
-type family Not' a where
-  Not' True = False
-  Not' a = True
 
 instance ( MapADTM True mode prf a ~ (UnRep (MapGenericM mode prf (Rep a)))
          , Rep (UnRep (MapGenericM mode prf (Rep a))) ~ (MapGenericM mode prf (Rep a))
@@ -430,28 +433,6 @@ instance ( MapADTM True mode prf a ~ (UnRep (MapGenericM mode prf (Rep a)))
 
 instance (MapADTM False mode prf a ~ a) => MapADT False mode prf a where
   mapADT _ mode prf a = a
-
-class GMapADT mode prf f g where
-  gMapADT :: Proxy mode -> Set.Set prf -> f a -> g a
-
-instance GMapADT mode prf U1 U1 where
-  gMapADT mode prf = id
-
-instance (GMapADT mode prf f g) => GMapADT mode prf (M1 i c f) (M1 i c g) where
-  gMapADT mode prf (M1 c) = M1 (gMapADT mode prf c)
-
-instance GMapADT mode prf (K1 i (Permission prf' c)) (K1 i c) where
-  gMapADT mode prf (K1 (Permission f)) = K1 f
-
-instance GMapADT mode prf (K1 i c) (K1 i c) where
-  gMapADT mode prf (K1 f) = (K1 f)
-
-instance (GMapADT mode prf f f2, GMapADT mode prf g g2) => GMapADT mode prf (f :*: g) (f2 :*: g2) where
-  gMapADT mode prf (f :*: g) = gMapADT mode prf f :*: gMapADT mode prf g
-
-instance (GMapADT mode prf f f2, GMapADT mode prf g g2) => GMapADT mode prf (f :+: g) (f2 :+: g2) where
-  gMapADT mode prf (L1 f) = L1 (gMapADT mode prf f)
-  gMapADT mode prf (R1 f) = R1 (gMapADT mode prf f)
 
 --------------------------------------------------------------------------------
 
