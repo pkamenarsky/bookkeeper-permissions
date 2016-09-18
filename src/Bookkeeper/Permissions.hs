@@ -329,7 +329,8 @@ type family DetM (mode :: Symbol) (prf :: [*]) a
 
 type family MapGenericM mode prf a where
   MapGenericM mode prf (M1 i c f) = M1 i c (MapGenericM mode prf f)
-  MapGenericM mode prf (K1 i (Permission prf' c))   = K1 i (MapADTM mode prf c)
+  MapGenericM mode prf (K1 i (Permission prf' c))
+                                  = K1 i (MapADTM mode prf c)
   MapGenericM mode prf (K1 i c)   = K1 i (MapADTM mode prf c)
   MapGenericM mode prf (f :*: g)  = MapGenericM mode prf f :*: MapGenericM mode prf g
   MapGenericM mode prf (f :+: g)  = MapGenericM mode prf f :+: MapGenericM mode prf g
