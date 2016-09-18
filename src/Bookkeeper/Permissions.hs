@@ -372,7 +372,8 @@ type family MapADTM mode prf a where
 class (MapADTM mode prf a ~ b) => MapADT mode prf a b where
   mapADT :: Proxy mode -> Set.Set prf -> a -> MapADTM mode prf a
 
-instance {-# OVERLAPPABLE #-} ( Generic a, Generic b
+instance {-# OVERLAPPABLE #-}
+         ( Generic a, Generic b
          , MapADTM mode prf a ~ b
          , MapGeneric mode prf (Rep a) (Rep b)
          ) => MapADT mode prf a b where
