@@ -325,10 +325,10 @@ class MapGeneric mode prf f g | mode prf f -> g where
 instance (MapGeneric mode prf f g) => MapGeneric mode prf (M1 i c f) (M1 i c g) where
   mapGeneric mode prf (M1 c) = M1 (mapGeneric mode prf c)
 
-instance (MapGeneric mode prf (Rep f) (Rep g)) => MapGeneric mode prf (K1 i (Permission prf' f)) (K1 i g) where
+instance (MapADT mode prf f g) => MapGeneric mode prf (K1 i (Permission prf' f)) (K1 i g) where
   mapGeneric mode prf (K1 c) = undefined -- K1 (to $ mapGeneric mode prf $ from c)
 
-instance {-# OVERLAPPABLE #-} (MapGeneric mode prf (Rep f) (Rep g)) => MapGeneric mode prf (K1 i f) (K1 i g) where
+instance {-# OVERLAPPABLE #-} (MapADT mode prf f g) => MapGeneric mode prf (K1 i f) (K1 i g) where
   mapGeneric mode prf (K1 c) = undefined -- K1 (to $ mapGeneric mode prf $ from c)
 
 instance {-# OVERLAPPING #-} MapGeneric mode prf (K1 i f) (K1 i f) where
@@ -366,15 +366,18 @@ type family MapADTM mode prf a where
 
   MapADTM mode prf a = DetM mode prf a
 
-mapADT :: ( Generic a, Generic b, MapGeneric mode prf (Rep a) (Rep b)
-          , MapADTM mode prf a ~ b
-          , MapGenericM mode prf (Rep a) ~ (Rep b)
-          )
-        => Proxy mode
-        -> Set.Set prf
-        -> a
-        -> b
-mapADT mode prf = to . mapGeneric mode prf . from
+class MapADT mode prf a b | mode prf a -> b where
+  mapADT :: Proxy mode -> Set.Set prf -> a -> b
+  default mapADT :: ( Generic a, Generic b
+                    , MapGeneric mode prf (Rep a) (Rep b)
+                    , MapADTM mode prf a ~ b
+                    , MapGenericM mode prf (Rep a) ~ (Rep b)
+                    )
+                   => Proxy mode
+                   -> Set.Set prf
+                   -> a
+                   -> b
+  mapADT mode prf = to . mapGeneric mode prf . from
 
 --------------------------------------------------------------------------------
 
