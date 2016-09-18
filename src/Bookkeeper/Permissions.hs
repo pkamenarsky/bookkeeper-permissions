@@ -343,13 +343,13 @@ instance (MapGeneric mode prf f g) => MapGeneric mode prf (M1 i c f) (M1 i c g) 
   mapGeneric mode prf (M1 c) = M1 (mapGeneric mode prf c)
 
 instance (MapADT mode prf f g) => MapGeneric mode prf (K1 i (Permission prf' f)) (K1 i g) where
-  mapGeneric mode prf (K1 c) = undefined -- K1 (to $ mapGeneric mode prf $ from c)
+  mapGeneric mode prf (K1 (Permission c)) = K1 (mapADT mode prf c)
 
 instance {-# OVERLAPPABLE #-} (MapADT mode prf f g) => MapGeneric mode prf (K1 i f) (K1 i g) where
-  mapGeneric mode prf (K1 c) = undefined -- K1 (to $ mapGeneric mode prf $ from c)
+  mapGeneric mode prf (K1 c) = K1 (mapADT mode prf c)
 
-instance {-# OVERLAPPING #-} MapGeneric mode prf (K1 i f) (K1 i f) where
-  mapGeneric mode prf (K1 c) = undefined -- K1 (to $ mapGeneric mode prf $ from c)
+instance MapGeneric mode prf (K1 i f) (K1 i f) where
+  mapGeneric mode prf (K1 c) = K1 c
 
 instance (MapGeneric mode prf f f2, MapGeneric mode prf g g2) => MapGeneric mode prf (f :*: g) (f2 :*: g2) where
   mapGeneric mode prf (f :*: g) = mapGeneric mode prf f :*: mapGeneric mode prf g
