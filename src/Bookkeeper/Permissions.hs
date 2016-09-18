@@ -353,7 +353,7 @@ instance (MapADT mode prf f g) => MapGeneric mode prf (K1 i (Permission prf' f))
     (\(K1 (Permission c)) -> K1 (fst (mapADT mode prf) c))
     (\(K1 c) -> K1 (Permission (snd (mapADT mode prf) c)))
 
-instance {-# OVERLAPPABLE #-} (MapADT mode prf f g) => MapGeneric mode prf (K1 i f) (K1 i g) where
+instance {-# INCOHERENT #-} (MapADT mode prf f g) => MapGeneric mode prf (K1 i f) (K1 i g) where
   mapGeneric mode prf = iso
     (\(K1 c) -> K1 (fst (mapADT mode prf) c))
     (\(K1 c) -> K1 (snd (mapADT mode prf) c))

@@ -111,6 +111,13 @@ d = f ((emptyBook & #name =: (unsafePermission "name") & #age =: (unsafePermissi
     (f, t) = mapElim (Proxy :: Proxy "modify") (Proxy :: Proxy Admin)
 -}
 
+type UndeadT = Book '[ "kills" :=> Permission '[ "read" :=> Admin ] Int ]
+
+data Person0' a = Person0 { _name :: String, _age :: Int }
+                | Undead a deriving (Eq, {- Ord, -} Generic, Show)
+
+type Person0 = Person0' UndeadT
+
 data A1 a b c = A1 a | A2 b | A3 c deriving (Show, Generic)
 
 type A1' = A1 Person Person Person
@@ -122,4 +129,7 @@ type A1' = A1 Person Person Person
 --   where (f, t) = mapADT (Proxy :: Proxy "modify") (Set.Empty)
 -- 
 -- d2 = t (f person)
+--   where (f, t) = mapADT (Proxy :: Proxy "modify") (Set.Empty)
+--
+-- d3 = f (undefined :: Person0)
 --   where (f, t) = mapADT (Proxy :: Proxy "modify") (Set.Empty)
