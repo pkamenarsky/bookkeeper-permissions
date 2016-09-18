@@ -117,5 +117,9 @@ type A1' = A1 Person Person Person
 
 -- d :: _
 -- d = mapADT (Proxy :: Proxy "modify") (Admin `Set.Ext` (Auth `Set.Ext` Set.Empty)) (A1 undefined :: A1')
--- d = mapADT (Proxy :: Proxy "modify") (Set.Empty) (A1 person :: A1')
--- d = mapADT (Proxy :: Proxy "modify") (Set.Empty) person
+
+d = f (A1 person :: A1')
+  where (f, t) = mapADT (Proxy :: Proxy "modify") (Set.Empty)
+
+d2 = f person
+  where (f, t) = mapADT (Proxy :: Proxy "modify") (Set.Empty)
