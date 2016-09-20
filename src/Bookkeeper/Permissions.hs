@@ -239,13 +239,14 @@ class ElimPermission mode t a where
 instance ElimPermission mode '[] a where
   elimPermission _ _ = iso id id
 
-instance ( -- ElimPermission mode xs (UnpackPermissionM mode x (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v))
-         ElimPermissionM mode (x : xs) (Permission prf' v)
-          ~ (ElimPermissionM mode xs (UnpackPermissionM mode x (Permission '[mode :=> (ElimTermM x (Map.Lookup prf' mode))] v)))
+instance ( ElimPermissionM mode (x : xs) (Permission prf' v)
+           ~ (ElimPermissionM mode xs (UnpackPermissionM mode x (Permission '[mode :=> (ElimTermM x (Map.Lookup prf' mode))] v)))
+         , ElimPermission mode xs (UnpackPermissionM mode x (Permission '[mode :=> (ElimTermM x (Map.Lookup prf' mode))] v))
+         , UnpackPermission mode x (Permission '[mode :=> (ElimTermM x (Map.Lookup prf' mode))] v)
          ) => ElimPermission mode (x : xs) (Permission prf' v) where
   elimPermission mode (Set.Ext _ xs) = iso
-    undefined -- ((fst (elimPermission mode xs)) . (fst (unpackPermission mode (Proxy :: Proxy x))))
-    undefined -- ((snd (unpackPermission mode (Proxy :: Proxy x))) . (snd (elimPermission mode xs)))
+    (\a -> (fst (elimPermission mode xs)) . (fst (unpackPermission mode (Proxy :: Proxy x))) $ (cnvPermission a :: (Permission '[mode :=> (ElimTermM x (Map.Lookup prf' mode))] v)))
+    (\a -> cnvPermission (snd (unpackPermission mode (Proxy :: Proxy x)) (snd (elimPermission mode xs) a) :: (Permission '[mode :=> (ElimTermM x (Map.Lookup prf' mode))] v)))
 
 instance {-# OVERLAPPABLE #-}
          ( ElimPermissionM mode (x : xs) a ~ a
@@ -347,7 +348,7 @@ type family MapADTM mode prf a where
 class (MapADTM mode prf a ~ b) => MapADT mode prf a b where
   mapADT :: Proxy mode -> Set.Set prf -> Iso a (MapADTM mode prf a)
 
-instance {-# INCOHERENT #-}
+instance {-# OVERLAPPABLE #-}
          ( Generic a, Generic b
          , MapADTM mode prf a ~ b
          , MapGeneric mode prf (Rep a) (Rep b)
