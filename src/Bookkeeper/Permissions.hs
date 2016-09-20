@@ -370,11 +370,14 @@ instance (MapGeneric mode prf f f2, MapGeneric mode prf g g2) => MapGeneric mode
 
 instance (MapGeneric mode prf f f2, MapGeneric mode prf g g2) => MapGeneric mode prf (f :+: g) (f2 :+: g2) where
   mapGeneric mode prf = iso
-    (\(L1 f) -> L1 (fst (mapGeneric mode prf) f))
-    (\(L1 f) -> L1 (snd (mapGeneric mode prf) f))
-  mapGeneric mode prf = iso
-    (\(R1 g) -> R1 (fst (mapGeneric mode prf) g))
-    (\(R1 g) -> R1 (snd (mapGeneric mode prf) g))
+    (\a -> case a of
+      (L1 f) -> L1 (fst (mapGeneric mode prf) f)
+      (R1 f) -> R1 (fst (mapGeneric mode prf) f)
+    )
+    (\a -> case a of
+      (L1 f) -> L1 (snd (mapGeneric mode prf) f)
+      (R1 f) -> R1 (snd (mapGeneric mode prf) f)
+    )
 
 instance MapGeneric mode prf U1 U1 where
   mapGeneric mode prf = iso id id
