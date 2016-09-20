@@ -255,15 +255,15 @@ instance {-# OVERLAPPABLE #-}
 
 -- Book ------------------------------------------------------------------------
 
-instance Generic (Book' '[]) where
-  type Rep (Book' '[]) = U1
-  from _ = U1
-  to _   = Book (Map.Empty)
-
-instance (Generic (Book' m)) => Generic (Book' (k :=> v ': m)) where
-  type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: Rep (Book' m)
-  from (Book (Map.Ext k v m)) = M1 (K1 v) :*: from (Book m)
-  to (M1 (K1 v) :*: m) = Book (Map.Ext (Map.Var :: Map.Var k) v (getBook (to m)))
+-- instance Generic (Book' '[]) where
+--   type Rep (Book' '[]) = U1
+--   from _ = U1
+--   to _   = Book (Map.Empty)
+-- 
+-- instance (Generic (Book' m)) => Generic (Book' (k :=> v ': m)) where
+--   type Rep (Book' (k :=> v ': m)) = S1 ('MetaSel ('Just k) 'NoSourceUnpackedness 'NoSourceStrictness 'DecidedLazy) (Rec0 v) :*: Rep (Book' m)
+--   from (Book (Map.Ext k v m)) = M1 (K1 v) :*: from (Book m)
+--   to (M1 (K1 v) :*: m) = Book (Map.Ext (Map.Var :: Map.Var k) v (getBook (to m)))
 
 type family Merge a b where
   Merge (Book' xs) (Book' ys) = Book' (xs Set.:++ ys)
@@ -341,7 +341,7 @@ type family MapADTM mode prf a where
 class (MapADTM mode prf a ~ b) => MapADT mode prf a b where
   mapADT :: Proxy mode -> Set.Set prf -> Iso a (MapADTM mode prf a)
 
-instance {-# OVERLAPPABLE #-}
+instance {-# INCOHERENT #-}
          ( Generic a, Generic b
          , MapADTM mode prf a ~ b
          , MapGeneric mode prf (Rep a) (Rep b)
