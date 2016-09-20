@@ -129,7 +129,7 @@ type A1' = A1 Person Person Person
 --   where (f, t) = mapADT (Proxy :: Proxy "modify") (Set.Empty)
 
 -- d2 = t (f person)
---   where (f, t) = mapADT (Proxy :: Proxy "modify") (Set.Empty)
--- 
--- d3 = f (undefined :: Person0)
---   where (f, t) = mapADT (Proxy :: Proxy "modify") (Set.Empty)
+--  where (f, t) = mapADT (Proxy :: Proxy "modify") (Admin `Set.Ext` Set.Empty)
+
+d3 = f (undefined :: Person1)
+  where (f, t) = mapADT (Proxy :: Proxy "modify") (Admin `Set.Ext` Set.Empty)

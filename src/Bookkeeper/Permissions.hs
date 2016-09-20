@@ -127,23 +127,11 @@ module Bookkeeper.Permissions
     Permission
   , (:|:), (:&:)
 
--- * Reading
-  , Bookkeeper.Permissions.read
-
--- * Modification
-  , modify
-
--- * Insertion
-  , insert
-
 -- * Unsafe
   , unsafePermission
   , unsafeUnpackPermission
 
 -- * Type families & classes
-  , ElimListM
-  , ElimList
-
   , MapGeneric
   , MapADTM
   , MapADT
@@ -224,76 +212,19 @@ type family ElimTermM prf x where
 --------------------------------------------------------------------------------
 
 type family UnpackPermissionM mode prf a where
-  UnpackPermissionM mode prf (Permission '[mode :=> ()] a)           = ElimM mode prf a
+  UnpackPermissionM mode prf (Permission '[mode :=> ()] a)           = a
   UnpackPermissionM mode prf (Permission '[mode :=> ModeNotFound] a) = TypeError ('Text "Mode " ':<>: 'ShowType mode ':<>: 'Text " isn't defined for all fields")
   UnpackPermissionM mode prf (Permission prf' a)                     = Permission prf' a
 
 class UnpackPermission mode prf a where
   unpackPermission :: Proxy mode -> Proxy prf -> Iso a (UnpackPermissionM mode prf a)
 
-instance ( Elim mode prf a
-         , UnpackPermissionM mode prf (Permission '[mode :=> ()] a) ~ (ElimM mode prf a)
+instance ( UnpackPermissionM mode prf (Permission '[mode :=> ()] a) ~ a
          ) => UnpackPermission mode prf (Permission '[mode :=> ()] a) where
-  unpackPermission mode prf = iso (\(Permission a) -> fst (elim mode prf) a) (\a -> Permission (snd (elim mode prf) a))
+  unpackPermission mode prf = iso (\(Permission a) -> a) (\a -> Permission a)
 
 instance {-# OVERLAPPABLE #-} (UnpackPermissionM mode prf (Permission prf' a) ~ Permission prf' a) => UnpackPermission mode prf (Permission prf' a) where
   unpackPermission _ _ = iso id id
-
-type family ElimM mode prf a where
-  ElimM mode prf (Book' kvs) = Book' (ElimBookM mode prf kvs)
-  ElimM mode prf x           = x
-
-class Elim mode prf a where
-  elim :: Proxy mode -> Proxy prf -> Iso a (ElimM mode prf a)
-
-instance (ElimBook mode prf kvs) => Elim mode prf (Book' kvs) where
-  elim mode prf = iso (\a -> (fst (elimBook mode prf) a)) (\a -> (snd (elimBook mode prf) a))
-
-instance {-# OVERLAPPABLE #-} (ElimM mode prf a ~ a) => Elim mode prf a where
-  elim _ _ = iso id id
-
-type family ElimBookM mode prf a where
-  ElimBookM mode prf '[] = '[]
-  ElimBookM mode prf ((k :=> Permission prf' v) ': m) = (k :=> UnpackPermissionM mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) ': ElimBookM mode prf m
-  ElimBookM mode prf ((k :=> v) ': m) = (k :=> ElimM mode prf v) ': ElimBookM mode prf m
-
-class ElimBook mode prf a where
-  elimBook :: Proxy mode -> Proxy prf -> Iso (Book' a) (Book' (ElimBookM mode prf a))
-
-instance (ElimBookM mode prf '[] ~ '[]) => ElimBook mode prf '[] where
-  elimBook _ _ = iso id id
-
-instance {-# OVERLAPPABLE #-}
-    ( UnpackPermission mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)
-    , ElimBook mode prf m
-    ) => ElimBook mode prf ((k :=> Permission prf' v) ': m) where
-  elimBook mode prf = iso
-    (\(Book (Map.Ext k v m)) -> Book (Map.Ext k (fst (unpackPermission mode prf) (cnvPermission v :: (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v))) (getBook (fst (elimBook mode prf) (Book m)))))
-    (\(Book (Map.Ext k v m)) -> Book (Map.Ext k (cnvPermission (snd (unpackPermission mode prf) v :: Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v)) (getBook (snd (elimBook mode prf) (Book m)))))
-
-instance {-# OVERLAPPABLE #-}
-    ( Elim mode prf v
-    , ElimBook mode prf m
-    , ElimBookM mode prf ((k :=> v) ': m) ~ ((k :=> ElimM mode prf v) ': ElimBookM mode prf m)
-    ) => ElimBook mode prf ((k :=> v) ': m) where
-  elimBook mode prf = iso
-    (\(Book (Map.Ext k v m)) -> (Book (Map.Ext k (fst (elim mode prf) v) (getBook (fst (elim mode prf) (Book m))))))
-    (\(Book (Map.Ext k v m)) -> (Book (Map.Ext k (snd (elim mode prf) v) (getBook (snd (elim mode prf) (Book m))))))
-
-type family ElimListM mode lst a where
-  ElimListM mode '[] a    = a
-  ElimListM mode (x:xs) a = ElimListM mode xs (ElimM mode x a)
-
-class ElimList mode t a where
-  elimList :: Proxy mode -> Set.Set t -> Iso a (ElimListM mode t a)
-
-instance ElimList mode '[] a where
-  elimList _ _ = iso id id
-
-instance (Elim mode x a, ElimList mode xs (ElimM mode x a)) => ElimList mode (x : xs) a where
-  elimList mode (Set.Ext _ xs) = iso
-    ((fst (elimList mode xs)) . (fst (elim mode (Proxy :: Proxy x))))
-    ((snd (elim mode (Proxy :: Proxy x))) . (snd (elimList mode xs)))
 
 type family ElimPermissionM mode lst a where
   ElimPermissionM mode '[] a        = a
@@ -308,13 +239,13 @@ class ElimPermission mode t a where
 instance ElimPermission mode '[] a where
   elimPermission _ _ = iso id id
 
-instance ( ElimPermission mode xs (UnpackPermissionM mode x (Permission prf' v))
-         , UnpackPermission mode x (Permission prf' v)
-         , ElimPermissionM mode xs (UnpackPermissionM mode x (Permission prf' v)) ~ (ElimPermissionM mode (x : xs) (Permission prf' v))
+instance ( -- ElimPermission mode xs (UnpackPermissionM mode x (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v))
+         ElimPermissionM mode (x : xs) (Permission prf' v)
+          ~ (ElimPermissionM mode xs (UnpackPermissionM mode x (Permission '[mode :=> (ElimTermM x (Map.Lookup prf' mode))] v)))
          ) => ElimPermission mode (x : xs) (Permission prf' v) where
   elimPermission mode (Set.Ext _ xs) = iso
-    ((fst (elimPermission mode xs)) . (fst (unpackPermission mode (Proxy :: Proxy x))))
-    ((snd (unpackPermission mode (Proxy :: Proxy x))) . (snd (elimPermission mode xs)))
+    undefined -- ((fst (elimPermission mode xs)) . (fst (unpackPermission mode (Proxy :: Proxy x))))
+    undefined -- ((snd (unpackPermission mode (Proxy :: Proxy x))) . (snd (elimPermission mode xs)))
 
 instance {-# OVERLAPPABLE #-}
          ( ElimPermissionM mode (x : xs) a ~ a
@@ -379,10 +310,12 @@ instance ( MapADTM mode prf (ElimPermissionM mode prf f) ~ g
     (\(K1 c) -> K1 (fst (mapADT mode prf) (fst (elimPermission mode prf) c)))
     (\(K1 c) -> K1 (snd (elimPermission mode prf) (snd (mapADT mode prf) c)))
 
+{-
 instance MapGeneric mode prf (K1 i f) (K1 i f) where
   mapGeneric mode prf = iso
     (\(K1 c) -> K1 c)
     (\(K1 c) -> K1 c)
+-}
 
 instance (MapGeneric mode prf f f2, MapGeneric mode prf g g2) => MapGeneric mode prf (f :*: g) (f2 :*: g2) where
   mapGeneric mode prf = iso
@@ -432,39 +365,3 @@ data Mode (m :: Symbol) = Mode
 
 instance (s ~ s') => IsLabel s (Mode s') where
   fromLabel _ = Mode
-
--- | Read a protected value.
---
--- The purpose of this library is to be integrated in other libraries that
--- provide access to data in some form. For that purpose, functions like
--- 'read', 'modify' and 'insert' are provided. These functions expect a
--- type level list of permissions in order to infer a type containing
--- fields with possibly eliminated 'Permission' constructors. How this list
--- is generated is up to the calling library.
-read :: (ElimList "read" prf a) => Set.Set prf -> a -> (ElimListM "read" prf a)
-read prf a = from a
-  where (from, _) = elimList (Proxy :: Proxy "read") prf
-
--- | Modify a protected value.
---
--- The purpose of this library is to be integrated in other libraries that
--- provide access to data in some form. For that purpose, functions like
--- 'read', 'modify' and 'insert' are provided. These functions expect a
--- type level list of permissions in order to infer a type containing
--- fields with possibly eliminated 'Permission' constructors. How this list
--- is generated is up to the calling library.
-modify :: (ElimList "modify" prf a) => Set.Set prf -> (ElimListM "modify" prf a -> ElimListM "modify" prf a) -> a -> a
-modify prf f = to . f . from
-  where (from, to) = elimList (Proxy :: Proxy "modify") prf
-
--- | Create a protected value.
---
--- The purpose of this library is to be integrated in other libraries that
--- provide access to data in some form. For that purpose, functions like
--- 'read', 'modify' and 'insert' are provided. These functions expect a
--- type level list of permissions in order to infer a type containing
--- fields with possibly eliminated 'Permission' constructors. How this list
--- is generated is up to the calling library.
-insert :: (ElimList "insert" prf a) => Set.Set prf -> (ElimListM "insert" prf a) -> a
-insert prf a = to a
-  where (_, to) = elimList (Proxy :: Proxy "insert") prf
