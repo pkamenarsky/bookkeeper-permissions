@@ -295,6 +295,33 @@ instance (Elim mode x a, ElimList mode xs (ElimM mode x a)) => ElimList mode (x 
     ((fst (elimList mode xs)) . (fst (elim mode (Proxy :: Proxy x))))
     ((snd (elim mode (Proxy :: Proxy x))) . (snd (elimList mode xs)))
 
+type family ElimPermissionM mode lst prf where
+  ElimPermissionM mode '[] prf      = prf
+  ElimPermissionM mode (prf:prfs)
+                       (Permission prf' v)
+                                    = ElimPermissionM mode prfs (UnpackPermissionM mode prf (Permission '[mode :=> (ElimTermM prf (Map.Lookup prf' mode))] v))
+  ElimPermissionM mode (prf:prfs) a = a
+
+class ElimPermission mode t a where
+  elimPermission :: Proxy mode -> Set.Set t -> Iso a (ElimPermissionM mode t a)
+
+instance ElimPermission mode '[] a where
+  elimPermission _ _ = iso id id
+
+
+instance ( ElimPermission mode xs (UnpackPermissionM mode x (Permission prf' v))
+         , UnpackPermission mode x (Permission prf' v)
+         , ElimPermissionM mode xs (UnpackPermissionM mode x (Permission prf' v)) ~ (ElimPermissionM mode (x : xs) (Permission prf' v))
+         ) => ElimPermission mode (x : xs) (Permission prf' v) where
+  elimPermission mode (Set.Ext _ xs) = iso
+    ((fst (elimPermission mode xs)) . (fst (unpackPermission mode (Proxy :: Proxy x))))
+    ((snd (unpackPermission mode (Proxy :: Proxy x))) . (snd (elimPermission mode xs)))
+
+instance {-# OVERLAPPABLE #-}
+         ( ElimPermissionM mode (x : xs) a ~ a
+         ) => ElimPermission mode (x : xs) a where
+  elimPermission mode _ = iso id id
+
 -- Book ------------------------------------------------------------------------
 
 -- instance Generic (Book' '[]) where
