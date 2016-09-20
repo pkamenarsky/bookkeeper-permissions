@@ -339,8 +339,7 @@ type family Merge a b where
   Merge x y = (x, y)
 
 type family DetBookM mode prf a where
-  DetBookM mode prf (Book' (k :=> Permission prf' v ': r)) = Book' '[k :=> MapADTM mode prf (ElimPermissionM mode prf v)] `Merge` DetBookM mode prf (Book' r)
-  DetBookM mode prf (Book' (k :=> v ': r)) = Book' '[k :=> MapADTM mode prf v] `Merge` DetBookM mode prf (Book' r)
+  DetBookM mode prf (Book' (k :=> v ': r)) = Book' '[k :=> MapADTM mode prf (ElimPermissionM mode prf v)] `Merge` DetBookM mode prf (Book' r)
   DetBookM mode prf (Book' '[]) = Book' '[]
   DetBookM mode prf a = a
 
@@ -359,9 +358,7 @@ type family DetM (mode :: Symbol) (prf :: [*]) a
 
 type family MapGenericM mode prf a where
   MapGenericM mode prf (M1 i c f) = M1 i c (MapGenericM mode prf f)
-  MapGenericM mode prf (K1 i (Permission prf' c))
-                                  = K1 i (MapADTM mode prf (ElimPermissionM mode prf c))
-  MapGenericM mode prf (K1 i c)   = K1 i (MapADTM mode prf c)
+  MapGenericM mode prf (K1 i c)   = K1 i (MapADTM mode prf (ElimPermissionM mode prf c))
   MapGenericM mode prf (f :*: g)  = MapGenericM mode prf f :*: MapGenericM mode prf g
   MapGenericM mode prf (f :+: g)  = MapGenericM mode prf f :+: MapGenericM mode prf g
   MapGenericM mode prf U1         = U1
@@ -374,25 +371,13 @@ instance (MapGeneric mode prf f g) => MapGeneric mode prf (M1 i c f) (M1 i c g) 
     (\(M1 c) -> M1 (fst (mapGeneric mode prf) c))
     (\(M1 c) -> M1 (snd (mapGeneric mode prf) c))
 
-instance ( MapADT mode prf f g
-         , MapADTM mode prf (ElimPermissionM mode prf (Permission prf' f)) ~ g
-         , Generic g
-         , Generic (ElimPermissionM mode prf (Permission prf' f))
-         , ElimPermission mode prf (Permission prf' f)
-         , (MapGeneric
-                          mode
-                          prf
-                          (Rep (ElimPermissionM mode prf (Permission prf' f)))
-                          (Rep g))
-         ) => MapGeneric mode prf (K1 i (Permission prf' f)) (K1 i g) where
+instance ( MapADTM mode prf (ElimPermissionM mode prf f) ~ g
+         , MapADT mode prf (ElimPermissionM mode prf f) g
+         , ElimPermission mode prf f
+         ) => MapGeneric mode prf (K1 i f) (K1 i g) where
   mapGeneric mode prf = iso
     (\(K1 c) -> K1 (fst (mapADT mode prf) (fst (elimPermission mode prf) c)))
     (\(K1 c) -> K1 (snd (elimPermission mode prf) (snd (mapADT mode prf) c)))
-
-instance {-# INCOHERENT #-} (MapADT mode prf f g) => MapGeneric mode prf (K1 i f) (K1 i g) where
-  mapGeneric mode prf = iso
-    (\(K1 c) -> K1 (fst (mapADT mode prf) c))
-    (\(K1 c) -> K1 (snd (mapADT mode prf) c))
 
 instance MapGeneric mode prf (K1 i f) (K1 i f) where
   mapGeneric mode prf = iso
