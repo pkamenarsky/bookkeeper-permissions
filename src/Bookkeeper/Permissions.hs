@@ -311,13 +311,6 @@ instance ( MapADTM mode prf (ElimPermissionM mode prf f) ~ g
     (\(K1 c) -> K1 (fst (mapADT mode prf) (fst (elimPermission mode prf) c)))
     (\(K1 c) -> K1 (snd (elimPermission mode prf) (snd (mapADT mode prf) c)))
 
-{-
-instance MapGeneric mode prf (K1 i f) (K1 i f) where
-  mapGeneric mode prf = iso
-    (\(K1 c) -> K1 c)
-    (\(K1 c) -> K1 c)
--}
-
 instance (MapGeneric mode prf f f2, MapGeneric mode prf g g2) => MapGeneric mode prf (f :*: g) (f2 :*: g2) where
   mapGeneric mode prf = iso
     (\(f :*: g) -> fst (mapGeneric mode prf) f :*: fst (mapGeneric mode prf) g)
